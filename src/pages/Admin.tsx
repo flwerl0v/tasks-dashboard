@@ -1,0 +1,323 @@
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
+import { useAppData } from '../context/AppDataContext'
+import { AsyncState } from '../components/ui/AsyncState'
+import { Card } from '../components/ui/Card'
+import { Modal } from '../components/ui/Modal'
+import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
+import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
+import { getTeamBadgeStyle } from '../lib/teamColor'
+import { isOverdue } from '../lib/stats'
+import type { Member, Task, Team } from '../types'
+
+export default function Admin() {
+  const { loading, error } = useAppData()
+
+  return (
+    <AsyncState loading={loading} error={error}>
+      <TeamsPanel />
+    </AsyncState>
+  )
+}
+
+function TeamsPanel() {
+  const { teams, members, tasks, createTeam, updateTeam, deleteTeam } = useAppData()
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
+  const [teamFilter, setTeamFilter] = useState('')
+  const [rowError, setRowError] = useState<string | null>(null)
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Team | null>(null)
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const membersByTeam = useMemo(() => {
+    const map = new Map<string, Member[]>()
+    members.forEach((m) => {
+      if (!m.team_id) return
+      map.set(m.team_id, [...(map.get(m.team_id) ?? []), m])
+    })
+    return map
+  }, [members])
+
+  const tasksByTeam = useMemo(() => {
+    const map = new Map<string, Task[]>()
+    tasks.forEach((tsk) => {
+      if (!tsk.team_id) return
+      map.set(tsk.team_id, [...(map.get(tsk.team_id) ?? []), tsk])
+    })
+    return map
+  }, [tasks])
+
+  const categories = useMemo(
+    () => [...new Set(teams.map((tm) => tm.category).filter((c): c is string => Boolean(c)))].sort(),
+    [teams],
+  )
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return teams.filter((tm) => {
+      if (teamFilter && tm.id !== teamFilter) return false
+      if (q && !tm.name.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [teams, search, teamFilter])
+
+  const openCreate = () => {
+    setEditing(null)
+    setName('')
+    setCategory('')
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (team: Team) => {
+    setEditing(team)
+    setName(team.name)
+    setCategory(team.category ?? '')
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  const submit = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      const payload = { name: trimmed, category: category.trim() || null }
+      if (editing) await updateTeam(editing.id, payload)
+      else await createTeam(payload)
+      setModalOpen(false)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'บันทึกทีมไม่สำเร็จ')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const remove = async (team: Team) => {
+    const memberCount = membersByTeam.get(team.id)?.length ?? 0
+    const taskCount = tasksByTeam.get(team.id)?.length ?? 0
+    const confirmed = window.confirm(
+      `ลบทีม "${team.name}"?${
+        memberCount || taskCount ? ` สมาชิก ${memberCount} คน และงาน ${taskCount} งาน ในทีมนี้จะกลายเป็น "ไม่มีทีม"` : ''
+      }`,
+    )
+    if (!confirmed) return
+    try {
+      await deleteTeam(team.id)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'ลบทีมไม่สำเร็จ')
+    }
+  }
+
+  const totalMembers = members.length
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-500">
+        <span className="font-semibold text-slate-800">{filtered.length} ทีม</span> · {totalMembers} สมาชิกทั้งหมด
+      </p>
+
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-xs">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ค้นหาทีม..."
+                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
+              />
+            </div>
+            <select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-400"
+            >
+              <option value="">ทุกทีม</option>
+              {[...teams]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((tm) => (
+                  <option key={tm.id} value={tm.id}>
+                    {tm.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus size={15} />
+            เพิ่มทีม
+          </button>
+        </div>
+
+        <ErrorNote message={rowError} />
+
+        {filtered.length === 0 ? (
+          <p className="py-10 text-center text-slate-400">{search || teamFilter ? 'ไม่พบทีมที่ตรงกับเงื่อนไข' : 'ยังไม่มีทีม'}</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((team) => {
+              const teamMembers = membersByTeam.get(team.id) ?? []
+              const teamTasks = tasksByTeam.get(team.id) ?? []
+              const active = teamTasks.filter((t) => t.status !== 'done').length
+              const donePercent = teamTasks.length > 0 ? Math.round((teamTasks.filter((t) => t.status === 'done').length / teamTasks.length) * 100) : 0
+              const overdue = teamTasks.filter(isOverdue).length
+              const style = getTeamBadgeStyle(team.id)
+              const visibleMembers = teamMembers.slice(0, 5)
+              const extraMemberCount = teamMembers.length - visibleMembers.length
+
+              return (
+                <div
+                  key={team.id}
+                  onClick={() => navigate(`/admin/teams/${team.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/admin/teams/${team.id}`)}
+                  className={`cursor-pointer rounded-xl border border-t-4 border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${style.border}`}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3">
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white ${style.solid}`}>
+                        {team.name.trim().slice(0, 1).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="truncate font-semibold text-slate-800">{team.name}</p>
+                          {team.category && (
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style.bg} ${style.text}`}>
+                              {team.category}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-400">{teamMembers.length} สมาชิก</p>
+                      </div>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ActionMenu
+                        trigger="icon"
+                        items={
+                          [
+                            { label: 'แก้ไข', icon: Pencil, onClick: () => openEdit(team) },
+                            { label: 'ลบ', icon: Trash2, danger: true, onClick: () => void remove(team) },
+                          ] satisfies ActionMenuItem[]
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-3 flex items-center">
+                    {visibleMembers.map((m, i) => (
+                      <span
+                        key={m.id}
+                        title={m.name}
+                        style={{ zIndex: visibleMembers.length - i }}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-slate-600 ${getTeamBadgeStyle(m.id).bg} ${i > 0 ? '-ml-2' : ''}`}
+                      >
+                        {m.name.trim().slice(0, 1).toUpperCase()}
+                      </span>
+                    ))}
+                    {extraMemberCount > 0 && (
+                      <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[11px] font-semibold text-slate-500">
+                        +{extraMemberCount}
+                      </span>
+                    )}
+                    {teamMembers.length === 0 && <span className="text-xs text-slate-300">ยังไม่มีสมาชิก</span>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-amber-50 px-2 py-2 text-center">
+                      <p className="text-lg font-bold tabular-nums text-amber-600">{active}</p>
+                      <p className="text-[11px] text-amber-600/80">กำลังทำ</p>
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 px-2 py-2 text-center">
+                      <p className="text-lg font-bold tabular-nums text-emerald-600">{donePercent}%</p>
+                      <p className="text-[11px] text-emerald-600/80">สำเร็จ</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-2.5 text-xs text-slate-400">
+                    <span>งานทั้งหมด {teamTasks.length} งาน</span>
+                    {overdue > 0 && (
+                      <span className="flex items-center gap-1 font-medium text-rose-500">
+                        <AlertTriangle size={12} />
+                        เกินกำหนด {overdue}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? 'แก้ไขทีม' : 'เพิ่มทีมใหม่'}
+        description={editing ? 'แก้ไขชื่อทีมที่มีอยู่' : 'สร้างทีมใหม่เพื่อจัดกลุ่มสมาชิกและงาน'}
+        icon={Users}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className={cancelBtnClass}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={submitting || !name.trim()}
+              className={primaryBtnClass}
+            >
+              {editing ? 'บันทึก' : 'เพิ่มทีม'}
+            </button>
+          </>
+        }
+      >
+        <ErrorNote message={formError} />
+        <div className="space-y-3">
+          <div>
+            <label className={fieldLabelClass}>ชื่อทีม</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void submit()}
+              className={inputClass}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>หมวดหมู่ (ไม่บังคับ)</label>
+            <input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void submit()}
+              placeholder="เช่น คลินิก / ความงาม"
+              className={inputClass}
+              list="team-categories"
+            />
+            <datalist id="team-categories">
+              {categories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}
