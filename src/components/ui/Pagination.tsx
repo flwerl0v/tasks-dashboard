@@ -29,14 +29,14 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
         type="button"
         disabled={page === 1}
         onClick={() => onPageChange(page - 1)}
-        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-30"
+        className="rounded-md p-1.5 text-ink-400 hover:bg-surface-50 disabled:opacity-30"
         aria-label="หน้าก่อนหน้า"
       >
         <ChevronLeft size={15} />
       </button>
       {pages.map((p, i) =>
         p === '...' ? (
-          <span key={`dots-${i}`} className="px-1.5 text-xs text-slate-300">
+          <span key={`dots-${i}`} className="px-1.5 text-xs text-ink-300">
             …
           </span>
         ) : (
@@ -45,7 +45,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
             type="button"
             onClick={() => onPageChange(p)}
             className={`h-7 w-7 rounded-md text-xs font-medium tabular-nums ${
-              p === page ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+              p === page ? 'bg-primary-600 text-white' : 'text-ink-500 hover:bg-surface-50'
             }`}
           >
             {p}
@@ -56,7 +56,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
         type="button"
         disabled={page === pageCount}
         onClick={() => onPageChange(page + 1)}
-        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-50 disabled:opacity-30"
+        className="rounded-md p-1.5 text-ink-400 hover:bg-surface-50 disabled:opacity-30"
         aria-label="หน้าถัดไป"
       >
         <ChevronRight size={15} />

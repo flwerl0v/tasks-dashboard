@@ -5,14 +5,9 @@ import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { computeWeeklyClosedTrend } from '../lib/workload'
 import { isOverdue } from '../lib/stats'
+import { PRIORITY_COLORS, chartColors, colors } from '../lib/colors'
 import type { TaskPriority } from '../types'
 
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: '#94a3b8',
-  medium: '#f59e0b',
-  high: '#f43f5e',
-  critical: '#be123c',
-}
 const PRIORITY_LABELS: Record<TaskPriority, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
 
 export default function Reports() {
@@ -53,20 +48,20 @@ export default function Reports() {
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card>
-            <p className="text-xs text-slate-500">งานทั้งหมด</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{tasks.length}</p>
+            <p className="text-xs text-ink-500">งานทั้งหมด</p>
+            <p className="mt-1 text-2xl font-bold text-ink-900">{tasks.length}</p>
           </Card>
           <Card>
-            <p className="text-xs text-slate-500">ความคืบหน้าเฉลี่ย</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{avgProgress}%</p>
+            <p className="text-xs text-ink-500">ความคืบหน้าเฉลี่ย</p>
+            <p className="mt-1 text-2xl font-bold text-ink-900">{avgProgress}%</p>
           </Card>
           <Card>
-            <p className="text-xs text-slate-500">งานเกินกำหนด</p>
-            <p className="mt-1 text-2xl font-bold text-rose-600">{overdueCount}</p>
+            <p className="text-xs text-ink-500">งานเกินกำหนด</p>
+            <p className="mt-1 text-2xl font-bold text-danger-600">{overdueCount}</p>
           </Card>
           <Card>
-            <p className="text-xs text-slate-500">จำนวนทีม</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{teams.length}</p>
+            <p className="text-xs text-ink-500">จำนวนทีม</p>
+            <p className="mt-1 text-2xl font-bold text-ink-900">{teams.length}</p>
           </Card>
         </div>
 
@@ -74,13 +69,13 @@ export default function Reports() {
           <Card title="สถานะงานเสร็จ vs ค้างอยู่ ต่อทีม">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={teamCompletion} margin={{ left: -20 }}>
-                <CartesianGrid vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="team" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <CartesianGrid vertical={false} stroke={chartColors.grid} />
+                <XAxis dataKey="team" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip />
                 <Legend iconType="circle" iconSize={8} />
-                <Bar dataKey="เสร็จแล้ว" stackId="s" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="ค้างอยู่" stackId="s" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="เสร็จแล้ว" stackId="s" fill={colors.success[500]} radius={[0, 0, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="ค้างอยู่" stackId="s" fill={colors.ink[400]} radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -88,10 +83,10 @@ export default function Reports() {
           <Card title="งานตามระดับความสำคัญ (Priority)">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={priorityData} margin={{ left: -20 }}>
-                <CartesianGrid vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip formatter={(value) => [`${value} งาน`, 'จำนวนงาน']} cursor={{ fill: '#f1f5f9' }} />
+                <CartesianGrid vertical={false} stroke={chartColors.grid} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip formatter={(value) => [`${value} งาน`, 'จำนวนงาน']} cursor={{ fill: chartColors.cursor }} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={48}>
                   {priorityData.map((entry) => (
                     <Cell key={entry.priority} fill={PRIORITY_COLORS[entry.priority]} />
@@ -105,11 +100,11 @@ export default function Reports() {
         <Card title="แนวโน้มการปิดงานสะสม (8 สัปดาห์ล่าสุด)">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={weeklyTrend} margin={{ left: -20 }}>
-              <CartesianGrid vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <CartesianGrid vertical={false} stroke={chartColors.grid} />
+              <XAxis dataKey="week" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip formatter={(value) => [`${value} งาน`, 'ปิดสะสม']} />
-              <Line type="monotone" dataKey="closed" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} />
+              <Line type="monotone" dataKey="closed" stroke={chartColors.brand} strokeWidth={2} dot={{ r: 4, fill: chartColors.brand }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>

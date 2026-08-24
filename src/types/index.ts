@@ -67,3 +67,36 @@ export interface AiSummaryResult {
   summary: string
   generated_at: string
 }
+
+/** REQ-AI: per-owner numbers sent to the AI — the model only explains these, never computes them. */
+export interface OwnerWorkloadSummaryInput {
+  owner: string
+  openTaskCount: number
+  loadScore: number
+  status: WorkloadLevel
+  overdueCount: number
+  topRiskTasks: string[]
+}
+
+/** REQ-AI: team-level numbers sent to the AI for the cross-team workload narrative. */
+export interface TeamWorkloadSummaryInput {
+  teams: Array<{
+    team: string
+    memberCount: number
+    avgLoadScore: number
+    overloadCount: number
+    balancedCount: number
+    underloadCount: number
+  }>
+  topOverloadedMembers: string[]
+}
+
+/** Prompt Direction output shape: summary + risk_reason + suggested_action + confidence_note. */
+export interface AiWorkloadInsight {
+  summary: string
+  risk_reason: string
+  suggested_action: string
+  confidence_note: string
+  source: 'ai' | 'fallback'
+  generated_at: string
+}

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -11,19 +10,22 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { AlertTriangle, Bot, CheckCircle2, TrendingDown } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
+import { StatCard } from '../components/ui/StatCard'
 import { WorkloadBadge } from '../components/ui/Badge'
+import { SearchInput } from '../components/ui/SearchInput'
+import { EmptyState } from '../components/ui/EmptyState'
+import { DropdownSelect } from '../components/ui/DropdownSelect'
+import { AiInsightModal } from '../components/workload/AiInsightModal'
+import { TeamWorkloadInsightCard } from '../components/workload/TeamWorkloadInsightCard'
 import { computeMemberWorkloads, computeTeamWorkloadSummary } from '../lib/workload'
 import { WORKLOAD_CONFIG } from '../lib/workloadConfig'
-import type { WorkloadLevel } from '../types'
+import { LEVEL_COLORS, chartColors } from '../lib/colors'
+import type { MemberWorkload, WorkloadLevel } from '../types'
 
-const LEVEL_COLORS: Record<WorkloadLevel, string> = {
-  overload: '#f43f5e',
-  balanced: '#10b981',
-  underload: '#f59e0b',
-}
 const LEVEL_LABELS: Record<WorkloadLevel, string> = { overload: 'เยอะเกิน', balanced: 'พอดี', underload: 'น้อยเกิน' }
 
 function levelOf(loadScore: number): WorkloadLevel {
@@ -36,9 +38,13 @@ export default function WorkloadAI() {
   const { teams, members, tasks, loading, error } = useAppData()
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [insightMember, setInsightMember] = useState<MemberWorkload | null>(null)
 
   const workloads = useMemo(() => computeMemberWorkloads(members, tasks), [members, tasks])
   const teamSummary = useMemo(() => computeTeamWorkloadSummary(teams, workloads), [teams, workloads])
+  const overloadCount = useMemo(() => workloads.filter((w) => w.level === 'overload').length, [workloads])
+  const balancedCount = useMemo(() => workloads.filter((w) => w.level === 'balanced').length, [workloads])
+  const underloadCount = useMemo(() => workloads.filter((w) => w.level === 'underload').length, [workloads])
 
   const filteredWorkloads = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -59,29 +65,21 @@ export default function WorkloadAI() {
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="เยอะเกิน" value={overloadCount} icon={AlertTriangle} tone="danger" />
+          <StatCard label="พอดี" value={balancedCount} icon={CheckCircle2} tone="success" />
+          <StatCard label="น้อยเกิน" value={underloadCount} icon={TrendingDown} tone="warning" />
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาชื่อผู้รับผิดชอบ..."
-              className="w-64 rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
-            />
-          </div>
-          <select
+          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อผู้รับผิดชอบ..." wrapperClassName="w-64" />
+          <DropdownSelect
             value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-          >
-            <option value="all">ทุกทีม</option>
-            {teams.map((tm) => (
-              <option key={tm.id} value={tm.id}>
-                {tm.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-sm text-slate-400">
+            label="ทุกทีม"
+            options={[{ value: 'all', label: 'ทุกทีม' }, ...teams.map((tm) => ({ value: tm.id, label: tm.name }))]}
+            onChange={(value) => setTeamFilter(value)}
+          />
+          <span className="text-sm text-ink-400">
             แสดง {filteredWorkloads.length} จากทั้งหมด {workloads.length} คน
           </span>
         </div>
@@ -89,24 +87,24 @@ export default function WorkloadAI() {
         <Card
           title="Load Score รายบุคคล (%)"
           action={
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-ink-400">
               เกณฑ์: &lt;{WORKLOAD_CONFIG.underloadBelow}% น้อยเกิน · {WORKLOAD_CONFIG.underloadBelow}-
               {WORKLOAD_CONFIG.overloadAbove}% พอดี · &gt;{WORKLOAD_CONFIG.overloadAbove}% เยอะเกิน
             </span>
           }
         >
           {chartData.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400">ไม่พบผู้รับผิดชอบที่ตรงกับเงื่อนไข</p>
+            <EmptyState py="lg">ไม่พบผู้รับผิดชอบที่ตรงกับเงื่อนไข</EmptyState>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 40)}>
                 <BarChart data={chartData} layout="vertical" margin={{ left: 16 }}>
-                  <CartesianGrid horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} unit="%" />
-                  <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12, fill: '#334155' }} axisLine={false} tickLine={false} />
-                  <ReferenceLine x={WORKLOAD_CONFIG.underloadBelow} stroke="#cbd5e1" strokeDasharray="4 4" />
-                  <ReferenceLine x={WORKLOAD_CONFIG.overloadAbove} stroke="#cbd5e1" strokeDasharray="4 4" />
-                  <Tooltip formatter={(value) => [`${value}%`, 'Load Score']} cursor={{ fill: '#f1f5f9' }} />
+                  <CartesianGrid horizontal={false} stroke={chartColors.grid} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} unit="%" />
+                  <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12, fill: chartColors.tickStrong }} axisLine={false} tickLine={false} />
+                  <ReferenceLine x={WORKLOAD_CONFIG.underloadBelow} stroke={chartColors.referenceLine} strokeDasharray="4 4" />
+                  <ReferenceLine x={WORKLOAD_CONFIG.overloadAbove} stroke={chartColors.referenceLine} strokeDasharray="4 4" />
+                  <Tooltip formatter={(value) => [`${value}%`, 'Load Score']} cursor={{ fill: chartColors.cursor }} />
                   <Bar dataKey="loadScore" radius={[0, 4, 4, 0]} maxBarSize={22}>
                     {chartData.map((entry) => (
                       <Cell key={entry.name} fill={LEVEL_COLORS[entry.level]} />
@@ -114,7 +112,7 @@ export default function WorkloadAI() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+              <div className="mt-3 flex flex-wrap gap-4 text-xs text-ink-500">
                 {(['overload', 'balanced', 'underload'] as WorkloadLevel[]).map((level) => (
                   <span key={level} className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: LEVEL_COLORS[level] }} />
@@ -129,12 +127,12 @@ export default function WorkloadAI() {
         <Card title="สรุปภาระงานเฉลี่ยตามทีม">
           <ResponsiveContainer width="100%" height={Math.max(180, teamChartData.length * 44)}>
             <BarChart data={teamChartData} layout="vertical" margin={{ left: 16 }}>
-              <CartesianGrid horizontal={false} stroke="#e2e8f0" />
-              <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} unit="%" />
-              <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12, fill: '#334155' }} axisLine={false} tickLine={false} />
-              <ReferenceLine x={WORKLOAD_CONFIG.underloadBelow} stroke="#cbd5e1" strokeDasharray="4 4" />
-              <ReferenceLine x={WORKLOAD_CONFIG.overloadAbove} stroke="#cbd5e1" strokeDasharray="4 4" />
-              <Tooltip formatter={(value) => [`${value}%`, 'Load Score เฉลี่ย']} cursor={{ fill: '#f1f5f9' }} />
+              <CartesianGrid horizontal={false} stroke={chartColors.grid} />
+              <XAxis type="number" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={false} tickLine={false} unit="%" />
+              <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12, fill: chartColors.tickStrong }} axisLine={false} tickLine={false} />
+              <ReferenceLine x={WORKLOAD_CONFIG.underloadBelow} stroke={chartColors.referenceLine} strokeDasharray="4 4" />
+              <ReferenceLine x={WORKLOAD_CONFIG.overloadAbove} stroke={chartColors.referenceLine} strokeDasharray="4 4" />
+              <Tooltip formatter={(value) => [`${value}%`, 'Load Score เฉลี่ย']} cursor={{ fill: chartColors.cursor }} />
               <Bar dataKey="loadScore" radius={[0, 4, 4, 0]} maxBarSize={22}>
                 {teamChartData.map((entry) => (
                   <Cell key={entry.name} fill={LEVEL_COLORS[entry.level]} />
@@ -145,53 +143,68 @@ export default function WorkloadAI() {
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {teamSummary.map((s) => (
-              <div key={s.team.id} className="rounded-lg border border-slate-100 p-3 text-sm">
-                <p className="font-medium text-slate-700">{s.team.name}</p>
-                <p className="text-xs text-slate-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</p>
+              <div key={s.team.id} className="rounded-lg border border-border-100 p-3 text-sm">
+                <p className="font-medium text-ink-700">{s.team.name}</p>
+                <p className="text-xs text-ink-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</p>
                 <div className="mt-2 flex gap-3 text-xs">
-                  <span className="text-rose-600">เยอะเกิน {s.overloadCount}</span>
-                  <span className="text-emerald-600">พอดี {s.balancedCount}</span>
-                  <span className="text-amber-600">น้อยเกิน {s.underloadCount}</span>
+                  <span className="text-danger-600">เยอะเกิน {s.overloadCount}</span>
+                  <span className="text-success-600">พอดี {s.balancedCount}</span>
+                  <span className="text-warning-600">น้อยเกิน {s.underloadCount}</span>
                 </div>
               </div>
             ))}
           </div>
         </Card>
 
+        <TeamWorkloadInsightCard teamSummary={teamSummary} workloads={workloads} />
+
         <Card title="AI ประเมินภาระงานรายคน">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-xs text-slate-400">
+                <tr className="border-b border-border-100 text-xs text-ink-400">
                   <th className="pb-2 pr-4 font-medium">ผู้รับผิดชอบ</th>
                   <th className="pb-2 pr-4 font-medium">งานคงเหลือ</th>
                   <th className="pb-2 pr-4 font-medium">Load Score</th>
                   <th className="pb-2 pr-4 font-medium">เกินกำหนด</th>
-                  <th className="pb-2 pr-4 font-medium">สถานะ (AI)</th>
+                  <th className="pb-2 pr-4 font-medium">สถานะ</th>
                   <th className="pb-2 pr-4 font-medium">เหตุผลโดยย่อ</th>
-                  <th className="pb-2 font-medium">คำแนะนำ</th>
+                  <th className="pb-2 pr-4 font-medium">คำแนะนำ</th>
+                  <th className="pb-2 font-medium">AI Insight</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredWorkloads.map((w) => (
-                  <tr key={w.member.id} className="border-b border-slate-50 last:border-0 align-top">
-                    <td className="py-2.5 pr-4 font-medium text-slate-700">{w.member.name}</td>
-                    <td className="py-2.5 pr-4 text-slate-500">{w.openTaskCount}</td>
+                  <tr key={w.member.id} className="border-b border-border-50 last:border-0 align-top">
+                    <td className="py-2.5 pr-4 font-medium text-ink-700">{w.member.name}</td>
+                    <td className="py-2.5 pr-4 text-ink-500">{w.openTaskCount}</td>
                     <td className="py-2.5 pr-4">
                       <span className="font-semibold" style={{ color: LEVEL_COLORS[w.level] }}>
                         {w.loadScore}%
                       </span>
                     </td>
-                    <td className="py-2.5 pr-4 text-slate-500">{w.overdueCount}</td>
+                    <td className="py-2.5 pr-4 text-ink-500">{w.overdueCount}</td>
                     <td className="py-2.5 pr-4"><WorkloadBadge level={w.level} /></td>
-                    <td className="py-2.5 pr-4 max-w-xs text-slate-500">{w.reason}</td>
-                    <td className="py-2.5 max-w-xs text-slate-500">{w.suggestedAction ?? '-'}</td>
+                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.reason}</td>
+                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.suggestedAction ?? '-'}</td>
+                    <td className="py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setInsightMember(w)}
+                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
+                      >
+                        <Bot size={13} />
+                        ดู Insight
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {filteredWorkloads.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-6 text-center text-slate-400">
-                      {workloads.length === 0 ? 'ยังไม่มีสมาชิกในระบบ' : 'ไม่พบผู้รับผิดชอบที่ตรงกับเงื่อนไข'}
+                    <td colSpan={8}>
+                      <EmptyState py="sm">
+                        {workloads.length === 0 ? 'ยังไม่มีสมาชิกในระบบ' : 'ไม่พบผู้รับผิดชอบที่ตรงกับเงื่อนไข'}
+                      </EmptyState>
                     </td>
                   </tr>
                 )}
@@ -200,6 +213,8 @@ export default function WorkloadAI() {
           </div>
         </Card>
       </div>
+
+      <AiInsightModal workload={insightMember} tasks={tasks} onClose={() => setInsightMember(null)} />
     </AsyncState>
   )
 }

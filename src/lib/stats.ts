@@ -28,6 +28,24 @@ export function countByTeam(tasks: Task[], teams: Team[]): Array<{ team: string;
     .sort((a, b) => b.count - a.count)
 }
 
+export type TeamStatusBreakdown = { team: string; todo: number; doing: number; done: number; blocked: number; total: number }
+
+export function countByTeamAndStatus(tasks: Task[], teams: Team[]): TeamStatusBreakdown[] {
+  return teams
+    .map((team) => {
+      const teamTasks = tasks.filter((t) => t.team_id === team.id)
+      return {
+        team: team.name,
+        todo: teamTasks.filter((t) => t.status === 'todo').length,
+        doing: teamTasks.filter((t) => t.status === 'doing').length,
+        done: teamTasks.filter((t) => t.status === 'done').length,
+        blocked: teamTasks.filter((t) => t.status === 'blocked').length,
+        total: teamTasks.length,
+      }
+    })
+    .sort((a, b) => b.total - a.total)
+}
+
 /** Whole days elapsed since the given ISO date/timestamp (0 if in the future). */
 export function daysSince(dateStr: string): number {
   const diffMs = Date.now() - new Date(dateStr).getTime()

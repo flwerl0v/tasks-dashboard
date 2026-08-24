@@ -1,11 +1,16 @@
 import type { Member, Task, TaskStatus, Team } from '../../types'
 import { TaskCard } from './TaskCard'
 
-const COLUMNS: Array<{ status: TaskStatus; label: string; dot: string }> = [
-  { status: 'todo', label: 'To Do', dot: 'bg-slate-400' },
-  { status: 'doing', label: 'Doing', dot: 'bg-blue-500' },
-  { status: 'blocked', label: 'Blocked', dot: 'bg-rose-500' },
-  { status: 'done', label: 'Done', dot: 'bg-emerald-500' },
+const COLUMNS: Array<{
+  status: TaskStatus
+  label: string
+  dot: string
+  headerBg: string
+}> = [
+  { status: 'todo', label: 'To Do', dot: 'bg-blue-500', headerBg: 'bg-blue-50' },
+  { status: 'doing', label: 'Doing', dot: 'bg-amber-500', headerBg: 'bg-amber-50' },
+  { status: 'blocked', label: 'Blocked', dot: 'bg-rose-500', headerBg: 'bg-rose-50' },
+  { status: 'done', label: 'Done', dot: 'bg-emerald-500', headerBg: 'bg-emerald-50' },
 ]
 
 const PRIORITY_ORDER: Record<Task['priority'], number> = { critical: 0, high: 1, medium: 2, low: 3 }
@@ -35,15 +40,15 @@ export function TaskBoard({ tasks, teamById, memberById, onStatusChange }: TaskB
       {COLUMNS.map((col) => {
         const columnTasks = tasks.filter((tsk) => tsk.status === col.status).sort(byPriorityThenDueDate)
         return (
-          <div key={col.status} className="flex flex-col rounded-xl bg-slate-100/70 p-3">
-            <div className="mb-3 flex items-center gap-2 px-1">
-              <span className={`h-2 w-2 rounded-full ${col.dot}`} />
-              <h3 className="text-sm font-semibold text-slate-700">{col.label}</h3>
-              <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-500">
+          <div key={col.status} className="flex flex-col rounded-3xl bg-slate-100/75 p-3">
+            <div className={`mb-4 flex items-center gap-3 rounded-2xl ${col.headerBg} px-4 py-3`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
+              <h3 className="text-sm font-semibold text-slate-900">{col.label}</h3>
+              <span className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
                 {columnTasks.length}
               </span>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               {columnTasks.map((tsk) => (
                 <TaskCard
                   key={tsk.id}
@@ -54,7 +59,7 @@ export function TaskBoard({ tasks, teamById, memberById, onStatusChange }: TaskB
                 />
               ))}
               {columnTasks.length === 0 && (
-                <p className="rounded-lg border border-dashed border-slate-300 py-6 text-center text-xs text-slate-400">
+                <p className="rounded-lg border border-dashed border-border-300 py-6 text-center text-xs text-ink-400">
                   ไม่มีงาน
                 </p>
               )}

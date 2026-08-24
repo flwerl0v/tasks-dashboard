@@ -10,7 +10,7 @@ interface AsyncStateProps {
 export function AsyncState({ loading, error, children }: AsyncStateProps) {
   if (loading) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 text-slate-400">
+      <div className="flex h-64 flex-col items-center justify-center gap-2 text-ink-400">
         <Loader2 className="animate-spin" size={28} />
         <p className="text-sm">กำลังโหลดข้อมูล...</p>
       </div>
@@ -19,7 +19,7 @@ export function AsyncState({ loading, error, children }: AsyncStateProps) {
 
   if (error) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 text-rose-500">
+      <div className="flex h-64 flex-col items-center justify-center gap-2 text-danger-600">
         <AlertTriangle size={28} />
         <p className="text-sm">{error}</p>
       </div>

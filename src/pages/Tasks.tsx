@@ -1,23 +1,65 @@
 import { useMemo, useState } from 'react'
-import { LayoutGrid, List, Search } from 'lucide-react'
+import { LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
-import { PriorityBadge } from '../components/ui/Badge'
+import { Modal } from '../components/ui/Modal'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { PriorityFlag } from '../components/ui/Badge'
+import { Avatar } from '../components/ui/Avatar'
+import { SearchInput } from '../components/ui/SearchInput'
+import { ProgressBar } from '../components/ui/ProgressBar'
+import { EmptyState } from '../components/ui/EmptyState'
+import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
+import { DropdownSelect } from '../components/ui/DropdownSelect'
+import { SortHeader, TableHeadRow, TableBodyRow, TableFooter } from '../components/ui/tableParts'
+import { useTableState } from '../lib/useTableState'
+import { isOverdue } from '../lib/stats'
 import { TaskBoard } from '../components/tasks/TaskBoard'
-import type { TaskPriority, TaskStatus } from '../types'
+import type { Task, TaskPriority, TaskStatus } from '../types'
 
 const STATUS_OPTIONS: Array<TaskStatus | 'all'> = ['all', 'todo', 'doing', 'done', 'blocked']
 const PRIORITY_OPTIONS: Array<TaskPriority | 'all'> = ['all', 'low', 'medium', 'high', 'critical']
 const PRIORITY_ORDER: Record<TaskPriority, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+const STATUS_ORDER: Record<TaskStatus, number> = { blocked: 0, doing: 1, todo: 2, done: 3 }
+
+
+interface TaskFormState {
+  title: string
+  team_id: string
+  owner_id: string
+  status: TaskStatus
+  priority: TaskPriority
+  due_date: string
+  progress: string
+  effort_days: string
+}
+
+const EMPTY_TASK_FORM: TaskFormState = {
+  title: '',
+  team_id: '',
+  owner_id: '',
+  status: 'todo',
+  priority: 'medium',
+  due_date: '',
+  progress: '0',
+  effort_days: '1',
+}
 
 export default function Tasks() {
-  const { teams, members, tasks, loading, error, setTaskStatus } = useAppData()
+  const { teams, members, tasks, loading, error, setTaskStatus, updateTask, deleteTask } = useAppData()
   const [view, setView] = useState<'board' | 'list'>('board')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [taskForm, setTaskForm] = useState<TaskFormState>(EMPTY_TASK_FORM)
+  const [taskFormError, setTaskFormError] = useState<string | null>(null)
+  const [taskSubmitting, setTaskSubmitting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const teamById = useMemo(() => new Map(teams.map((tm) => [tm.id, tm])), [teams])
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
@@ -36,65 +78,111 @@ export default function Tasks() {
     })
   }, [tasks, statusFilter, priorityFilter, teamFilter, search, memberById])
 
-  const sortedFiltered = useMemo(
-    () => [...filtered].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]),
-    [filtered],
-  )
+  const getTaskSortValue = (task: Task, key: string) => {
+    switch (key) {
+      case 'owner':
+        return memberById.get(task.owner_id ?? '')?.name.toLowerCase() ?? ''
+      case 'team':
+        return teamById.get(task.team_id ?? '')?.name.toLowerCase() ?? ''
+      case 'status':
+        return STATUS_ORDER[task.status]
+      case 'priority':
+        return PRIORITY_ORDER[task.priority]
+      case 'due_date':
+        return task.due_date ?? ''
+      case 'progress':
+        return task.progress
+      default:
+        return task.title.toLowerCase()
+    }
+  }
+
+  const taskTable = useTableState(filtered, getTaskSortValue)
+
+  const confirmDeleteTask = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteTask(deleteTarget.id)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const openEditTask = (task: Task) => {
+    setEditingTaskId(task.id)
+    setTaskForm({
+      title: task.title,
+      team_id: task.team_id ?? '',
+      owner_id: task.owner_id ?? '',
+      status: task.status,
+      priority: task.priority,
+      due_date: task.due_date ?? '',
+      progress: String(task.progress),
+      effort_days: String(task.effort_days),
+    })
+    setTaskFormError(null)
+    setTaskModalOpen(true)
+  }
+
+  const submitTaskEdit = async () => {
+    if (!editingTaskId) return
+    const title = taskForm.title.trim()
+    if (!title) return
+    const progress = Math.max(0, Math.min(100, Number(taskForm.progress) || 0))
+    const effort_days = Math.max(0, Number(taskForm.effort_days) || 0)
+    setTaskSubmitting(true)
+    setTaskFormError(null)
+    try {
+      await updateTask(editingTaskId, {
+        title,
+        team_id: taskForm.team_id || null,
+        owner_id: taskForm.owner_id || null,
+        status: taskForm.status,
+        priority: taskForm.priority,
+        due_date: taskForm.due_date || null,
+        progress,
+        effort_days,
+      })
+      setTaskModalOpen(false)
+    } catch (err) {
+      setTaskFormError(err instanceof Error ? err.message : 'บันทึกงานไม่สำเร็จ')
+    } finally {
+      setTaskSubmitting(false)
+    }
+  }
 
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหางาน หรือผู้รับผิดชอบ..."
-              className="w-64 rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
-            />
-          </div>
-          <select
+        <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-slate-50 p-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหางาน หรือผู้รับผิดชอบ..." wrapperClassName="w-64" />
+          <DropdownSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s === 'all' ? 'ทุกสถานะ' : s}
-              </option>
-            ))}
-          </select>
-          <select
+            label="ทุกสถานะ"
+            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s === 'all' ? 'ทุกสถานะ' : s }))}
+            onChange={(value) => setStatusFilter(value as TaskStatus | 'all')}
+          />
+          <DropdownSelect
             value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value as TaskPriority | 'all')}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-          >
-            {PRIORITY_OPTIONS.map((p) => (
-              <option key={p} value={p}>
-                {p === 'all' ? 'ทุก Priority' : p}
-              </option>
-            ))}
-          </select>
-          <select
+            label="ทุก Priority"
+            options={PRIORITY_OPTIONS.map((p) => ({ value: p, label: p === 'all' ? 'ทุก Priority' : p }))}
+            onChange={(value) => setPriorityFilter(value as TaskPriority | 'all')}
+          />
+          <DropdownSelect
             value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-          >
-            <option value="all">ทุกทีม</option>
-            {teams.map((tm) => (
-              <option key={tm.id} value={tm.id}>
-                {tm.name}
-              </option>
-            ))}
-          </select>
+            label="ทุกทีม"
+            options={[{ value: 'all', label: 'ทุกทีม' }, ...teams.map((tm) => ({ value: tm.id, label: tm.name }))]}
+            onChange={(value) => setTeamFilter(value)}
+          />
 
-          <div className="ml-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+          <div className="ml-auto flex items-center gap-1 rounded-2xl border border-border bg-surface p-1">
             <button
               type="button"
               onClick={() => setView('board')}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                view === 'board' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+              className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === 'board' ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
               }`}
             >
               <LayoutGrid size={14} />
@@ -103,8 +191,8 @@ export default function Tasks() {
             <button
               type="button"
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                view === 'list' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
+              className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === 'list' ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
               }`}
             >
               <List size={14} />
@@ -113,7 +201,7 @@ export default function Tasks() {
           </div>
         </div>
 
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-500">
           แสดง {filtered.length} จากทั้งหมด {tasks.length} งาน
         </p>
 
@@ -129,63 +217,235 @@ export default function Tasks() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 text-xs text-slate-400">
-                    <th className="pb-2 font-medium">Task</th>
-                    <th className="pb-2 font-medium">Team</th>
-                    <th className="pb-2 font-medium">Owner</th>
-                    <th className="pb-2 font-medium">Status</th>
-                    <th className="pb-2 font-medium">Priority</th>
-                    <th className="pb-2 font-medium">Due Date</th>
-                    <th className="pb-2 font-medium">Progress</th>
-                    <th className="pb-2 font-medium">Effort (วัน)</th>
-                  </tr>
+                  <TableHeadRow>
+                    <th className="w-10 py-3 pl-3 font-medium">No</th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="ทีม" sortKey="team" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="py-3 pr-4 font-medium">สถานะ</th>
+                    <th className="py-3 pr-4 font-medium">
+                      <SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
+                    </th>
+                    <th className="w-10 py-3 pr-3 font-medium text-right">Action</th>
+                  </TableHeadRow>
                 </thead>
                 <tbody>
-                  {sortedFiltered.map((tsk) => (
-                    <tr key={tsk.id} className="border-b border-slate-50 last:border-0">
-                      <td className="py-2.5 font-medium text-slate-700">{tsk.title}</td>
-                      <td className="py-2.5 text-slate-500">{teamById.get(tsk.team_id ?? '')?.name ?? '-'}</td>
-                      <td className="py-2.5 text-slate-500">{memberById.get(tsk.owner_id ?? '')?.name ?? '-'}</td>
-                      <td className="py-2.5">
-                        <select
-                          value={tsk.status}
-                          onChange={(e) => void setTaskStatus(tsk.id, e.target.value as TaskStatus)}
-                          className="rounded-md border border-slate-200 px-2 py-1 text-xs outline-none focus:border-blue-400"
-                          title="เปลี่ยนสถานะ"
-                        >
-                          {(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2.5"><PriorityBadge priority={tsk.priority} /></td>
-                      <td className="py-2.5 text-slate-500">{tsk.due_date ?? '-'}</td>
-                      <td className="py-2.5 text-slate-500">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-blue-500" style={{ width: `${tsk.progress}%` }} />
+                  {taskTable.paged.map((tsk, i) => {
+                    const owner = memberById.get(tsk.owner_id ?? '')
+                    return (
+                      <TableBodyRow key={tsk.id} hoverable zebra={i % 2 === 1}>
+                        <td className="py-3 pl-3 text-xs text-ink-400">
+                          {(taskTable.page - 1) * taskTable.pageSize + i + 1}
+                        </td>
+                        <td className="py-3 pr-4 font-medium text-ink-700">{tsk.title}</td>
+                        <td className="py-3 pr-4 text-ink-500">{teamById.get(tsk.team_id ?? '')?.name ?? '-'}</td>
+                        <td className="py-3 pr-4">
+                          {owner ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar id={owner.id} name={owner.name} />
+                              <span className="text-ink-600">{owner.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-ink-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4"><PriorityFlag priority={tsk.priority} /></td>
+                        <td className={`py-3 pr-4 ${isOverdue(tsk) ? 'font-medium text-danger-600' : 'text-ink-500'}`}>
+                          {tsk.due_date ?? '-'}
+                        </td>
+                        <td className="py-3 pr-4">
+                            <DropdownSelect
+                            value={tsk.status}
+                            label="สถานะ"
+                            options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+                            onChange={(value) => void setTaskStatus(tsk.id, value)}
+                            buttonClassName="px-3 py-1.5 text-sm"
+                          />
+                        </td>
+                        <td className="py-3 pr-4">
+                          {tsk.progress > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <ProgressBar value={tsk.progress} size="sm" className="w-16" />
+                              <span className="text-xs tabular-nums text-ink-500">{tsk.progress}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-ink-300">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEditTask(tsk)}
+                              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
+                              aria-label="แก้ไข"
+                              title="แก้ไข"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(tsk)}
+                              className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
+                              aria-label="ลบ"
+                              title="ลบ"
+                            >
+                              <Trash2 size={15} />
+                            </button>
                           </div>
-                          <span className="text-xs">{tsk.progress}%</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 text-slate-500">{tsk.effort_days}</td>
-                    </tr>
-                  ))}
-                  {filtered.length === 0 && (
+                        </td>
+                      </TableBodyRow>
+                    )
+                  })}
+                  {taskTable.paged.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
-                        ไม่พบงานที่ตรงกับเงื่อนไข
+                      <td colSpan={9}>
+                        <EmptyState py="md">ไม่พบงานที่ตรงกับเงื่อนไข</EmptyState>
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+            <TableFooter page={taskTable.page} pageSize={taskTable.pageSize} total={taskTable.total} onPageSizeChange={taskTable.setPageSize} />
           </Card>
         )}
       </div>
+
+      <Modal
+        open={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        title="แก้ไขงาน"
+        description="แก้ไขรายละเอียดของงานนี้"
+        icon={ListChecks}
+        widthClassName="max-w-2xl"
+        footer={
+          <>
+            <button type="button" onClick={() => setTaskModalOpen(false)} className={cancelBtnClass}>
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitTaskEdit()}
+              disabled={taskSubmitting || !taskForm.title.trim()}
+              className={primaryBtnClass}
+            >
+              บันทึกการแก้ไข
+            </button>
+          </>
+        }
+      >
+        <ErrorNote message={taskFormError} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className={fieldLabelClass}>ชื่องาน</label>
+            <input
+              value={taskForm.title}
+              onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+              className={inputClass}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>ทีม</label>
+            <DropdownSelect
+              value={taskForm.team_id}
+              label="ไม่มีทีม"
+              fullWidth
+              options={[
+                { value: '', label: 'ไม่มีทีม' },
+                ...teams.map((tm) => ({ value: tm.id, label: tm.name })),
+              ]}
+              onChange={(value) => setTaskForm((f) => ({ ...f, team_id: value }))}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>ผู้รับผิดชอบ</label>
+            <DropdownSelect
+              value={taskForm.owner_id}
+              label="ไม่มีผู้รับผิดชอบ"
+              fullWidth
+              options={[
+                { value: '', label: 'ไม่มีผู้รับผิดชอบ' },
+                ...members.map((m) => ({ value: m.id, label: m.name })),
+              ]}
+              onChange={(value) => setTaskForm((f) => ({ ...f, owner_id: value }))}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>สถานะ</label>
+            <DropdownSelect
+              value={taskForm.status}
+              label="status"
+              fullWidth
+              options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+              onChange={(value) => setTaskForm((f) => ({ ...f, status: value }))}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>ระดับความสำคัญ</label>
+            <DropdownSelect
+              value={taskForm.priority}
+              label="priority"
+              fullWidth
+              options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({ value: p, label: p }))}
+              onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>กำหนดส่ง</label>
+            <input
+              type="date"
+              value={taskForm.due_date}
+              onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>ความคืบหน้า (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={taskForm.progress}
+              onChange={(e) => setTaskForm((f) => ({ ...f, progress: e.target.value }))}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Effort (วัน)</label>
+            <input
+              type="number"
+              min={0}
+              value={taskForm.effort_days}
+              onChange={(e) => setTaskForm((f) => ({ ...f, effort_days: e.target.value }))}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="ลบงานนี้?"
+        description={deleteTarget ? `งาน "${deleteTarget.title}" จะถูกลบออกอย่างถาวร ไม่สามารถย้อนกลับได้` : undefined}
+        confirmLabel="ลบงาน"
+        loading={deleting}
+        onConfirm={() => void confirmDeleteTask()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AsyncState>
   )
 }

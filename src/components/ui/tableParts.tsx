@@ -1,4 +1,8 @@
+import type { ReactNode } from 'react'
 import { ArrowUpDown, Plus, Search, Trash2 } from 'lucide-react'
+import { DropdownSelect } from './DropdownSelect'
+import { SearchInput } from './SearchInput'
+import { selectClass } from './formStyles'
 import type { SortDir } from '../../lib/useTableState'
 
 export function SortHeader({
@@ -18,11 +22,38 @@ export function SortHeader({
     <button
       type="button"
       onClick={() => onSort(sortKey)}
-      className="flex items-center gap-1 font-medium text-slate-500 hover:text-slate-700"
+      className="flex items-center gap-1 font-medium text-ink-500 hover:text-ink-700"
     >
       {label}
-      <ArrowUpDown size={12} className={active ? 'text-blue-600' : 'text-slate-300'} />
+      <ArrowUpDown size={12} className={active ? 'text-primary-600' : 'text-ink-300'} />
     </button>
+  )
+}
+
+export function TableHeadRow({ children, shaded }: { children: ReactNode; shaded?: boolean }) {
+  return (
+    <tr className={`border-b border-border-100 text-xs text-ink-400 ${shaded ? 'bg-surface-50' : ''}`}>
+      {children}
+    </tr>
+  )
+}
+
+export function TableBodyRow({
+  children,
+  hoverable,
+  zebra,
+}: {
+  children: ReactNode
+  hoverable?: boolean
+  /** Shade this row with a subtle tint — pass `index % 2 === 1` for alternating rows. */
+  zebra?: boolean
+}) {
+  return (
+    <tr
+      className={`border-b border-border-50 last:border-0 transition-colors ${zebra ? 'bg-surface-50/60' : ''} ${hoverable ? 'hover:bg-surface-100/70' : ''}`}
+    >
+      {children}
+    </tr>
   )
 }
 
@@ -39,21 +70,13 @@ export function TableToolbar({
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div className="relative w-full max-w-xs">
-        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="ค้นหา..."
-          className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400"
-        />
-      </div>
+      <SearchInput value={search} onChange={onSearchChange} placeholder="ค้นหา..." wrapperClassName="w-full max-w-xs" />
       <button
         type="button"
         onClick={onCreate}
-        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-slate-50"
       >
-        <Plus size={15} />
+        <Plus size={14} />
         {createLabel}
       </button>
     </div>
@@ -63,18 +86,18 @@ export function TableToolbar({
 export function SelectionBar({ count, onDelete, onClear }: { count: number; onDelete: () => void; onClear: () => void }) {
   if (count === 0) return null
   return (
-    <div className="mb-3 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm">
-      <span className="font-medium text-blue-700">เลือกแล้ว {count} รายการ</span>
+    <div className="mb-3 flex items-center justify-between rounded-lg border border-primary-100 bg-primary-50 px-4 py-2.5 text-sm">
+      <span className="font-medium text-primary-700">เลือกแล้ว {count} รายการ</span>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+          className="flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-700"
         >
           <Trash2 size={13} />
           ลบที่เลือก
         </button>
-        <button type="button" onClick={onClear} className="text-xs font-medium text-slate-500 hover:underline">
+        <button type="button" onClick={onClear} className="text-xs font-medium text-ink-500 hover:underline">
           ยกเลิกการเลือก
         </button>
       </div>
@@ -98,23 +121,20 @@ export function TableFooter({
   const to = Math.min(page * pageSize, total)
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-ink-400">
         แสดงผล {from}-{to} จากทั้งหมด {total} รายการ
       </p>
-      <label className="flex items-center gap-2 text-xs text-slate-400">
-        แถวต่อหน้า
-        <select
-          value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 outline-none focus:border-blue-400"
-        >
-          {[10, 25, 50].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="flex items-center gap-3 text-xs text-ink-400">
+        <span>แถวต่อหน้า</span>
+        <DropdownSelect
+          value={String(pageSize)}
+          options={[10, 25, 50].map((n) => ({ value: String(n), label: String(n) }))}
+          onChange={(value) => onPageSizeChange(Number(value))}
+          label={String(pageSize)}
+          className="w-auto"
+          buttonClassName="min-w-[5rem]"
+        />
+      </div>
     </div>
   )
 }

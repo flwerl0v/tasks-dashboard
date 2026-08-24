@@ -13,7 +13,7 @@ export function weightedRemainingEffort(task: Task): number {
 }
 
 /** Due Date Risk — grounded, numeric reason string for one task, or null if it carries no risk. */
-function dueDateRiskReason(task: Task): string | null {
+export function dueDateRiskReason(task: Task): string | null {
   if (task.status === 'done' || !task.due_date) return null
   const due = new Date(task.due_date)
   const today = new Date(new Date().toDateString())
@@ -120,11 +120,18 @@ export function computeWeeklyClosedTrend(tasks: Task[], weeks = 6): WeeklyTrendP
     buckets.set(key, (buckets.get(key) ?? 0) + 1)
   }
 
-  const sortedKeys = [...buckets.keys()].sort()
-  const lastKeys = sortedKeys.slice(-weeks)
+  const today = new Date()
+  const currentWeekStart = new Date(today)
+  currentWeekStart.setDate(today.getDate() - today.getDay())
+
   let running = 0
-  return lastKeys.map((key, i) => {
+  const points: WeeklyTrendPoint[] = []
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = new Date(currentWeekStart)
+    weekStart.setDate(currentWeekStart.getDate() - i * 7)
+    const key = weekStart.toISOString().slice(0, 10)
     running += buckets.get(key) ?? 0
-    return { week: `W${i + 1}`, closed: running }
-  })
+    points.push({ week: `W${weeks - i}`, closed: running })
+  }
+  return points
 }

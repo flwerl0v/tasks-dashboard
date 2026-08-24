@@ -12,14 +12,14 @@ export default function Export() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Card title="Export Summary (Excel)">
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm text-ink-500">
           ส่งออกไฟล์ Excel แบบหลายชีท: Tasks, Workload (AI), และสรุปตามทีม ในไฟล์เดียว รวมทั้งหมด {tasks.length} งาน
         </p>
         <button
           type="button"
           onClick={() => exportSummaryXlsx(tasks, teams, members, workloads)}
           disabled={tasks.length === 0}
-          className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-success-200 bg-success-50 px-4 py-2.5 text-sm font-medium text-success-700 hover:bg-success-100 disabled:opacity-50"
         >
           <FileSpreadsheet size={16} />
           Export Summary (Excel)

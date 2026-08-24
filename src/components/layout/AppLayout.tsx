@@ -21,7 +21,7 @@ export function AppLayout() {
       : { title: 'Manager Dashboard' })
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-surface-50">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar title={meta.title} subtitle={meta.subtitle} />
