@@ -6,7 +6,7 @@ const SIZE_CLASS: Record<'sm' | 'md', string> = {
 const TONE_CLASS: Record<'primary' | 'success' | 'warning' | 'danger', string> = {
   primary: 'bg-primary-500',
   success: 'bg-success-500',
-  warning: 'bg-warning-500',
+  warning: 'bg-warning-600',
   danger: 'bg-danger-500',
 }
 

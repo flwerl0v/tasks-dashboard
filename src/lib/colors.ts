@@ -10,6 +10,15 @@ export const STATUS_COLORS: Record<TaskStatus, string> = {
   blocked: palette.danger[500],
 }
 
+export const STATUS_ORDER: TaskStatus[] = ['todo', 'doing', 'done', 'blocked']
+
+export const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: 'To Do',
+  doing: 'Doing',
+  done: 'Done',
+  blocked: 'Blocked',
+}
+
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: palette.ink[400],
   medium: palette.warning[500],

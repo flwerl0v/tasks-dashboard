@@ -1,21 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertOctagon, CheckCircle2, Clock, FileSpreadsheet, ListTodo, ShieldCheck, TimerReset, Info } from 'lucide-react'
-import {
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ReferenceDot,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Bar,
-  BarChart,
-} from 'recharts'
 import { useAppData } from '../context/AppDataContext'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -26,17 +11,19 @@ import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { AiSummaryCard } from '../components/dashboard/AiSummaryCard'
+import { StatusDonutChart } from '../components/charts/StatusDonutChart'
+import { TeamStatusBarChart } from '../components/charts/TeamStatusBarChart'
+import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
 import { Modal } from '../components/ui/Modal'
 import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
-import { STATUS_COLORS, chartColors } from '../lib/colors'
+import { captureCharts } from '../lib/chartCapture'
+import { STATUS_COLORS } from '../lib/colors'
 import type { TaskStatus } from '../types'
 
-const STATUS_ORDER: TaskStatus[] = ['todo', 'doing', 'done', 'blocked']
-const STATUS_LABELS: Record<TaskStatus, string> = { todo: 'To Do', doing: 'Doing', done: 'Done', blocked: 'Blocked' }
 const STATUS_ROW_BG: Record<TaskStatus, string> = {
   todo: 'bg-primary-50/40',
   doing: 'bg-warning-50/40',
@@ -52,52 +39,16 @@ function formatDueDate(dueDate: string | null): string {
   return `${day}/${month}/${date.getFullYear()}`
 }
 
-interface TeamStatusTooltipProps {
-  active?: boolean
-  label?: string
-  payload?: Array<{ dataKey: TaskStatus; value: number; color: string }>
-}
-
-function TeamStatusTooltip({ active, label, payload }: TeamStatusTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null
-  const rows = payload.filter((p) => p.value > 0)
-  if (rows.length === 0) return null
-  return (
-    <div className="min-w-[140px] rounded-lg border border-border bg-surface px-3 py-2.5 shadow-lg">
-      <p className="mb-1.5 text-xs font-semibold text-ink-800">{label}</p>
-      <div className="space-y-1">
-        {rows.map((p) => (
-          <div key={p.dataKey} className="flex items-center justify-between gap-4 text-xs">
-            <span className="flex items-center gap-1.5 text-ink-500">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
-              {STATUS_LABELS[p.dataKey]}
-            </span>
-            <span className="font-semibold tabular-nums text-ink-900">{p.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TeamStatusLegend() {
-  return (
-    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-border-100 pt-3">
-      {STATUS_ORDER.map((status) => (
-        <div key={status} className="flex items-center gap-1.5 text-xs text-ink-500">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] }} />
-          {STATUS_LABELS[status]}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const { teams, members, tasks, loading, error } = useAppData()
   const navigate = useNavigate()
   const [confirmAdmin, setConfirmAdmin] = useState(false)
   const [recentTeamFilter, setRecentTeamFilter] = useState<string>('all')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const donutChartRef = useRef<HTMLDivElement>(null)
+  const teamChartRef = useRef<HTMLDivElement>(null)
+  const trendChartRef = useRef<HTMLDivElement>(null)
 
   const byStatus = useMemo(() => countByStatus(tasks), [tasks])
   const byTeamStatus = useMemo(() => countByTeamAndStatus(tasks, teams), [tasks, teams])
@@ -125,7 +76,24 @@ export default function Dashboard() {
   const teamById = useMemo(() => new Map(teams.map((tm) => [tm.id, tm])), [teams])
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
 
-  const donutData = STATUS_ORDER.map((status) => ({ name: STATUS_LABELS[status], value: byStatus[status], status }))
+  const handleExport = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const charts = await captureCharts([
+        { title: 'สัดส่วนงานตามสถานะ', ref: donutChartRef },
+        { title: 'งานตามทีม', ref: teamChartRef },
+        { title: 'แนวโน้มการปิดงาน (รายสัปดาห์)', ref: trendChartRef },
+      ])
+      if (charts.length === 0) console.warn('[export] no charts captured — the Excel file will not include a Charts sheet')
+      await exportSummaryXlsx(tasks, teams, members, workloads, charts)
+    } catch (err) {
+      console.error('[export] failed', err)
+      setExportError(err instanceof Error ? err.message : 'Export ไม่สำเร็จ')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <AsyncState loading={loading} error={error}>
@@ -140,71 +108,15 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card title="สัดส่วนงานตามสถานะ" className="lg:col-span-1">
-            <div className="flex flex-col items-center gap-5">
-              <div className="relative h-[180px] w-[180px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={donutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={54} outerRadius={82} paddingAngle={2}>
-                      {donutData.map((entry) => (
-                        <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value, name) => [`${value} งาน`, name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-ink-900">{tasks.length}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">งานทั้งหมด</span>
-                </div>
-              </div>
-              <div className="grid w-full grid-cols-4 gap-2">
-                {STATUS_ORDER.map((status) => (
-                  <div key={status} className="flex flex-col items-center gap-1 text-center">
-                    <span className="flex items-center gap-1.5 text-xs text-ink-500">
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] }} />
-                      {STATUS_LABELS[status]}
-                    </span>
-                    <span className="text-base font-bold text-ink-900">{byStatus[status]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <StatusDonutChart byStatus={byStatus} total={tasks.length} chartRef={donutChartRef} />
           </Card>
 
           <Card title="งานตามทีม">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={byTeamStatus} margin={{ left: 0 }} barGap={3} barCategoryGap="20%">
-                <CartesianGrid vertical={false} stroke={chartColors.grid} />
-                <XAxis dataKey="team" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                <YAxis hide allowDecimals={false} />
-                <Tooltip content={<TeamStatusTooltip />} cursor={{ fill: chartColors.cursor }} />
-                {STATUS_ORDER.map((status) => (
-                  <Bar key={status} dataKey={status} name={STATUS_LABELS[status]} fill={STATUS_COLORS[status]} radius={[4, 4, 0, 0]} maxBarSize={24} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-            {byTeamStatus.length > 0 && <TeamStatusLegend />}
+            <TeamStatusBarChart data={byTeamStatus} chartRef={teamChartRef} />
           </Card>
 
           <Card title="แนวโน้มการปิดงาน (รายสัปดาห์)">
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={weeklyTrend} margin={{ left: 0, right: 16, top: 8 }}>
-                <XAxis dataKey="week" tick={{ fontSize: 12, fill: chartColors.tick }} axisLine={{ stroke: chartColors.grid }} tickLine={false} />
-                <YAxis hide allowDecimals={false} />
-                <Tooltip formatter={(value) => [`${value} งาน`, 'ปิดสะสม']} />
-                <Line type="monotone" dataKey="closed" stroke={chartColors.brand} strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                {weeklyTrend.length > 0 && (
-                  <ReferenceDot
-                    x={weeklyTrend[weeklyTrend.length - 1].week}
-                    y={weeklyTrend[weeklyTrend.length - 1].closed}
-                    r={5}
-                    fill={chartColors.brand}
-                    stroke="#fff"
-                    strokeWidth={2}
-                  />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+            <WeeklyTrendChart data={weeklyTrend} chartRef={trendChartRef} />
           </Card>
         </div>
 
@@ -289,14 +201,14 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className={`rounded-r-lg py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          {tsk.progress > 0 ? (
-                            <div className="flex items-center gap-2">
-                              <ProgressBar value={tsk.progress} className="w-16" />
-                              <span className="tabular-nums text-xs text-ink-500">{tsk.progress}%</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-ink-300">-</span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <ProgressBar
+                              value={tsk.progress}
+                              className="w-16"
+                              tone={tsk.progress >= 100 ? 'success' : tsk.progress >= 50 ? 'primary' : 'warning'}
+                            />
+                            <span className="tabular-nums text-xs text-ink-500">{tsk.progress}%</span>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -373,13 +285,14 @@ export default function Dashboard() {
             <div className="flex flex-col items-center gap-2.5 text-center">
               <button
                 type="button"
-                onClick={() => exportSummaryXlsx(tasks, teams, members, workloads)}
-                disabled={tasks.length === 0}
+                onClick={() => void handleExport()}
+                disabled={tasks.length === 0 || exporting}
                 className={`${primaryBtnClass} inline-flex items-center gap-2 whitespace-nowrap self-center`}
               >
                 <FileSpreadsheet size={16} />
-                Export Summary (Excel)
+                {exporting ? 'กำลังสร้างไฟล์...' : 'Export Summary (Excel)'}
               </button>
+              {exportError && <p className="text-xs text-danger-600">เกิดข้อผิดพลาด: {exportError}</p>}
             </div>
           </Card>
         </div>

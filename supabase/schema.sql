@@ -88,3 +88,25 @@ create policy "anon delete tasks" on tasks for delete to anon, authenticated usi
 
 create policy "anon read ai_summaries" on ai_summaries for select to anon, authenticated using (true);
 create policy "anon write ai_summaries" on ai_summaries for insert to anon, authenticated with check (true);
+
+-- Realtime: lets the dashboard live-update when rows change from anywhere
+-- (another tab, the SQL editor, a script) instead of only on page load.
+-- Wrapped in existence checks so re-running this file is always safe.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'teams'
+  ) then
+    alter publication supabase_realtime add table teams;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'members'
+  ) then
+    alter publication supabase_realtime add table members;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'tasks'
+  ) then
+    alter publication supabase_realtime add table tasks;
+  end if;
+end $$;

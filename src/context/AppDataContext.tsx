@@ -15,7 +15,7 @@ import {
   type NewTaskInput,
   type NewTeamInput,
 } from '../lib/dataService'
-import { isSupabaseConfigured } from '../lib/supabaseClient'
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
 import type { Member, Task, TaskStatus, Team } from '../types'
 
 interface AppDataContextValue {
@@ -66,6 +66,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // Load-on-mount: the one intended use of setState-in-effect (synchronizing with the DB).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+
+    // Any insert/update/delete on these tables — from this tab, another tab, or
+    // straight in the Supabase SQL editor — refetches everything. Debounced so a
+    // burst of changes (e.g. a bulk edit) triggers one refresh, not one per row.
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined
+    const scheduleRefresh = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => void refresh(), 300)
+    }
+
+    const channel = supabase
+      .channel('app-data-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
+      .subscribe()
+
+    return () => {
+      clearTimeout(debounceTimer)
+      void supabase.removeChannel(channel)
+    }
   }, [refresh])
 
   const setTaskStatus = useCallback(async (taskId: string, status: TaskStatus) => {

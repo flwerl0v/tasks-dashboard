@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import type { Member, MemberWorkload, Task, Team } from '../types'
+import type { CapturedChart } from './chartCapture'
 
 function flattenTasks(tasks: Task[], teams: Team[], members: Member[]) {
   const teamById = new Map(teams.map((t) => [t.id, t]))
@@ -16,14 +17,61 @@ function flattenTasks(tasks: Task[], teams: Team[], members: Member[]) {
   }))
 }
 
-/** Exports a multi-sheet Excel workbook: Tasks, Workload (AI), and Team summary. */
-export function exportSummaryXlsx(tasks: Task[], teams: Team[], members: Member[], workloads: MemberWorkload[]) {
-  const wb = XLSX.utils.book_new()
+function addDataSheet(wb: ExcelJS.Workbook, name: string, rows: Array<Record<string, string | number>>) {
+  const sheet = wb.addWorksheet(name)
+  if (rows.length === 0) return
+  sheet.columns = Object.keys(rows[0]).map((key) => ({ header: key, key, width: Math.max(12, key.length + 4) }))
+  sheet.addRows(rows)
+  sheet.getRow(1).font = { bold: true }
+}
 
-  const tasksSheet = XLSX.utils.json_to_sheet(flattenTasks(tasks, teams, members))
-  XLSX.utils.book_append_sheet(wb, tasksSheet, 'Tasks')
+function addChartSheet(wb: ExcelJS.Workbook, charts: CapturedChart[]) {
+  const sheet = wb.addWorksheet('Charts')
+  const ROW_HEIGHT_PX = 20
+  let cursorRow = 1
 
-  const workloadSheet = XLSX.utils.json_to_sheet(
+  for (const chart of charts) {
+    sheet.getCell(`A${cursorRow}`).value = chart.title
+    sheet.getCell(`A${cursorRow}`).font = { bold: true, size: 12 }
+    cursorRow += 1
+
+    // captured at 2x scale for sharpness — halve back down for a reasonably sized cell image
+    const displayWidth = chart.width / 2
+    const displayHeight = chart.height / 2
+    const imageId = wb.addImage({ base64: chart.dataUrl, extension: 'png' })
+    sheet.addImage(imageId, { tl: { col: 0, row: cursorRow - 1 }, ext: { width: displayWidth, height: displayHeight } })
+
+    cursorRow += Math.ceil(displayHeight / ROW_HEIGHT_PX) + 2
+  }
+}
+
+function downloadWorkbook(buffer: ArrayBuffer, filename: string) {
+  const blob = new Blob([buffer], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/** Exports a multi-sheet Excel workbook: Tasks, Workload (AI), Team summary, and (if provided) chart snapshots. */
+export async function exportSummaryXlsx(
+  tasks: Task[],
+  teams: Team[],
+  members: Member[],
+  workloads: MemberWorkload[],
+  charts: CapturedChart[] = [],
+) {
+  const wb = new ExcelJS.Workbook()
+
+  addDataSheet(wb, 'Tasks', flattenTasks(tasks, teams, members))
+
+  addDataSheet(
+    wb,
+    'Workload (AI)',
     workloads.map((w) => ({
       member: w.member.name,
       open_tasks: w.openTaskCount,
@@ -33,9 +81,10 @@ export function exportSummaryXlsx(tasks: Task[], teams: Team[], members: Member[
       reason: w.reason,
     })),
   )
-  XLSX.utils.book_append_sheet(wb, workloadSheet, 'Workload (AI)')
 
-  const teamSheet = XLSX.utils.json_to_sheet(
+  addDataSheet(
+    wb,
+    'Team Summary',
     teams.map((team) => {
       const teamTasks = tasks.filter((tsk) => tsk.team_id === team.id)
       return {
@@ -49,7 +98,9 @@ export function exportSummaryXlsx(tasks: Task[], teams: Team[], members: Member[
       }
     }),
   )
-  XLSX.utils.book_append_sheet(wb, teamSheet, 'Team Summary')
 
-  XLSX.writeFile(wb, 'task_dashboard_summary.xlsx')
+  if (charts.length > 0) addChartSheet(wb, charts)
+
+  const buffer = await wb.xlsx.writeBuffer()
+  downloadWorkbook(buffer, 'task_dashboard_summary.xlsx')
 }
