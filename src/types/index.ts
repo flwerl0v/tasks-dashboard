@@ -46,7 +46,7 @@ export interface MemberWorkload {
   loadScore: number
   level: WorkloadLevel
   reason: string
-  suggestedAction: string | null
+  suggestedAction: string
 }
 
 export interface TeamWorkloadSummary {

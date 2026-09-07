@@ -53,8 +53,8 @@ function fallbackMemberInsight(workload: MemberWorkload): AiWorkloadInsight {
   return {
     summary: `Load Score ${workload.loadScore}% จัดเป็น "${LEVEL_LABELS[workload.level]}" จากงานคงเหลือ ${workload.openTaskCount} งาน`,
     risk_reason: workload.reason,
-    suggested_action: workload.suggestedAction ?? 'ภาระงานอยู่ในระดับที่เหมาะสม ไม่จำเป็นต้องปรับเพิ่มเติมในขณะนี้',
-    confidence_note: 'สร้างจากกฎการคำนวณ (rule-based) เนื่องจากยังไม่ได้เชื่อมต่อ AI หรือ AI ใช้งานไม่ได้ในขณะนี้',
+    suggested_action: workload.suggestedAction,
+    confidence_note: 'คำแนะนำนี้คำนวณจากตัวเลขงานคงเหลือและกำหนดส่งโดยตรง ไม่ได้ผ่านการวิเคราะห์ของ AI',
     source: 'fallback',
     generated_at: new Date().toISOString(),
   }
@@ -72,10 +72,32 @@ function fallbackTeamInsight(teamSummary: TeamWorkloadSummary[]): AiWorkloadInsi
       overloaded.length > 0
         ? 'ควรตรวจสอบการกระจายงานในทีมที่มีสัดส่วนภาระงานเยอะเกินสูง และพิจารณาโยกงานข้ามทีมหากจำเป็น'
         : 'ยังไม่จำเป็นต้องปรับการกระจายงานในขณะนี้',
-    confidence_note: 'สร้างจากกฎการคำนวณ (rule-based) เนื่องจากยังไม่ได้เชื่อมต่อ AI หรือ AI ใช้งานไม่ได้ในขณะนี้',
+    confidence_note: 'คำแนะนำนี้คำนวณจากตัวเลขงานคงเหลือและกำหนดส่งโดยตรง ไม่ได้ผ่านการวิเคราะห์ของ AI',
     source: 'fallback',
     generated_at: new Date().toISOString(),
   }
+}
+
+/** Turns an HTTP failure status into a specific, user-facing reason instead of a bare status code. */
+function describeHttpFailure(status: number): string {
+  if (status === 401 || status === 403) return `Edge Function ปฏิเสธการเข้าถึง (HTTP ${status}) — ตรวจสอบ API key/สิทธิ์`
+  if (status === 404) return 'ไม่พบ Edge Function ที่ระบุ (HTTP 404) — ตรวจสอบ URL endpoint'
+  if (status === 429) return 'เรียกใช้ AI เกิน quota ในขณะนี้ (HTTP 429 — Rate Limit)'
+  if (status >= 500) return `Edge Function มีปัญหาฝั่งเซิร์ฟเวอร์ (HTTP ${status})`
+  return `Edge Function ตอบกลับผิดปกติ (HTTP ${status})`
+}
+
+/** Turns a thrown fetch()/parsing error into a specific, user-facing reason. */
+function describeFetchFailure(err: unknown): string {
+  if (err instanceof DOMException && err.name === 'AbortError') return 'หมดเวลาเชื่อมต่อ (Timeout)'
+  if (err instanceof TypeError) return 'เชื่อมต่อเครือข่ายไม่ได้ (ตรวจสอบอินเทอร์เน็ตหรือการตั้งค่า CORS)'
+  if (err instanceof SyntaxError) return 'Edge Function ส่งข้อมูลกลับมาในรูปแบบที่อ่านไม่ได้ (แปลง JSON ไม่สำเร็จ)'
+  if (err instanceof Error) return err.message
+  return 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+}
+
+function withFailureReason(fallback: AiWorkloadInsight, reason: string): AiWorkloadInsight {
+  return { ...fallback, confidence_note: `${fallback.confidence_note} (สาเหตุ: ${reason})` }
 }
 
 async function callInsightEndpoint(bodyPayload: Record<string, unknown>, fallback: AiWorkloadInsight): Promise<AiWorkloadInsight> {
@@ -108,7 +130,10 @@ async function callInsightEndpoint(bodyPayload: Record<string, unknown>, fallbac
       })
 
       if (!res.ok) {
-        throw new Error(`Edge Function responded with status ${res.status}`)
+        const reason = describeHttpFailure(res.status)
+        console.error(`[workload-insight] ${reason}`)
+        requestCache.delete(cacheKey)
+        return withFailureReason(fallback, reason)
       }
 
       const data = await res.json()
@@ -118,14 +143,15 @@ async function callInsightEndpoint(bodyPayload: Record<string, unknown>, fallbac
         summary: data.summary || data.insight || fallback.summary,
         risk_reason: data.risk_reason || data.reason || fallback.risk_reason,
         suggested_action: data.suggested_action || data.recommendation || (Array.isArray(data.recommendations) ? data.recommendations[0] : fallback.suggested_action),
-        confidence_note: data.confidence_note || 'สรุปโดย Gemini AI เป็นสัญญาณช่วยตรวจสอบ ไม่ใช่การชี้ขาด โปรดตรวจสอบก่อนตัดสินใจ',
+        confidence_note: data.confidence_note || 'เป็นสัญญาณช่วยตรวจสอบ ไม่ใช่การชี้ขาด โปรดตรวจสอบก่อนตัดสินใจ',
         source: 'ai',
         generated_at: new Date().toISOString(),
       }
     } catch (err) {
-      console.error('[workload-insight] Request failed, falling back to Rule-Based:', err)
+      const reason = describeFetchFailure(err)
+      console.error(`[workload-insight] Request failed, falling back to Rule-Based: ${reason}`, err)
       requestCache.delete(cacheKey)
-      return fallback
+      return withFailureReason(fallback, reason)
     }
   })()
 

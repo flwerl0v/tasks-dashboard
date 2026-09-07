@@ -19,6 +19,14 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   blocked: 'Blocked',
 }
 
+/** Subtle per-status row tint for the "colored row" table style (Dashboard, Tasks list). */
+export const STATUS_ROW_BG: Record<TaskStatus, string> = {
+  todo: 'bg-primary-50/40',
+  doing: 'bg-warning-50/40',
+  done: 'bg-success-50/40',
+  blocked: 'bg-danger-50/50',
+}
+
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: palette.ink[400],
   medium: palette.warning[500],

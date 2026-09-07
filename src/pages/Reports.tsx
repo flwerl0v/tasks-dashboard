@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { AlertOctagon, ListTodo, TrendingUp, Users } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
+import { StatCard } from '../components/ui/StatCard'
 import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
@@ -128,22 +130,10 @@ export default function Reports() {
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Card>
-            <p className="text-xs text-ink-500">งานทั้งหมด</p>
-            <p className="mt-1 text-2xl font-bold text-ink-900">{tasks.length}</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-ink-500">ความคืบหน้าเฉลี่ย</p>
-            <p className="mt-1 text-2xl font-bold text-ink-900">{avgProgress}%</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-ink-500">งานเกินกำหนด</p>
-            <p className="mt-1 text-2xl font-bold text-danger-600">{overdueCount}</p>
-          </Card>
-          <Card>
-            <p className="text-xs text-ink-500">จำนวนทีม</p>
-            <p className="mt-1 text-2xl font-bold text-ink-900">{teams.length}</p>
-          </Card>
+          <StatCard label="งานทั้งหมด" value={tasks.length} icon={ListTodo} tone="neutral" />
+          <StatCard label="ความคืบหน้าเฉลี่ย" value={`${avgProgress}%`} icon={TrendingUp} tone="success" />
+          <StatCard label="งานเกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" />
+          <StatCard label="จำนวนทีม" value={teams.length} icon={Users} tone="default" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

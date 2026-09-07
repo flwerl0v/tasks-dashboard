@@ -61,15 +61,19 @@ export function computeMemberWorkloads(members: Member[], tasks: Task[]): Member
       }
       const reason = reasonParts.join(' — ')
 
-      // REQ-AI-004: at least one suggestion for overload/underload; none needed when balanced.
-      let suggestedAction: string | null = null
+      // REQ-AI-004: every member gets a suggestion, worded with their own numbers so
+      // it doesn't read as identical boilerplate across everyone at the same level.
+      let suggestedAction: string
       if (level === 'overload') {
         suggestedAction =
           riskReasons.length > 0
-            ? 'ควรกระจายงานบางส่วนให้เพื่อนร่วมทีม และติดตามงานที่ใกล้/เกินกำหนดก่อนงานอื่น'
-            : 'ควรกระจายงานบางส่วนให้เพื่อนร่วมทีม หรือชะลอการมอบหมายงานใหม่ในสัปดาห์นี้'
+            ? `ควรกระจายงานบางส่วนให้เพื่อนร่วมทีม และติดตามงาน ${riskReasons.length} รายการที่ใกล้/เกินกำหนดก่อนงานอื่น`
+            : `มีงานคงเหลือ ${openTaskCount} งาน (Load Score ${loadScore}%) ควรกระจายงานบางส่วนให้เพื่อนร่วมทีม หรือชะลอการมอบหมายงานใหม่ในสัปดาห์นี้`
       } else if (level === 'underload') {
-        suggestedAction = 'สามารถรับงานเพิ่มเติมจากเพื่อนร่วมทีมที่มีภาระงานสูงได้'
+        const remainingCapacityDays = Math.max(0, WORKLOAD_CONFIG.weeklyCapacityDays - weightedEffortSum)
+        suggestedAction = `มีภาระงานคงเหลือเพียง ${weightedEffortSum.toFixed(1)} วัน จากกำลังรับได้ ${WORKLOAD_CONFIG.weeklyCapacityDays} วัน/สัปดาห์ (เหลือรับเพิ่มได้อีกราว ${remainingCapacityDays.toFixed(1)} วัน) สามารถรับงานเพิ่มเติมจากเพื่อนร่วมทีมที่มีภาระงานสูงได้`
+      } else {
+        suggestedAction = `ภาระงานอยู่ในระดับที่เหมาะสมแล้ว (Load Score ${loadScore}%) ไม่จำเป็นต้องปรับเปลี่ยน`
       }
 
       return {

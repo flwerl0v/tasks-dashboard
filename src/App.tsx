@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { AppDataProvider } from './context/AppDataContext'
+import { ToastProvider } from './components/ui/ToastProvider'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import Team from './pages/Team'
@@ -13,21 +14,23 @@ import Settings from './pages/Settings'
 
 function App() {
   return (
-    <AppDataProvider>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="team" element={<Team />} />
-          <Route path="workload" element={<WorkloadAI />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="export" element={<Export />} />
-          <Route path="admin" element={<Admin />} />
-          <Route path="admin/teams/:teamId" element={<TeamDetail />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </AppDataProvider>
+    <ToastProvider>
+      <AppDataProvider>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="team" element={<Team />} />
+            <Route path="workload" element={<WorkloadAI />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="export" element={<Export />} />
+            <Route path="admin" element={<Admin />} />
+            <Route path="admin/teams/:teamId" element={<TeamDetail />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </AppDataProvider>
+    </ToastProvider>
   )
 }
 

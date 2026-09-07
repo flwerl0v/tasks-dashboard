@@ -67,7 +67,12 @@ export function TeamWorkloadInsightCard({ teamSummary, workloads }: TeamWorkload
           {insight && !generating && (
             <>
               <p className="text-sm leading-relaxed text-ink-500">{insight.suggested_action}</p>
-              <p className="text-xs italic text-ink-400">{insight.confidence_note}</p>
+              <p className="text-xs italic text-ink-400">
+                <span className={`not-italic font-semibold ${insight.source === 'fallback' ? 'text-warning-600' : 'text-primary-600'}`}>
+                  {insight.source === 'fallback' ? 'โหมด Rule-Based: ' : 'Gemini AI: '}
+                </span>
+                {insight.confidence_note}
+              </p>
             </>
           )}
         </div>

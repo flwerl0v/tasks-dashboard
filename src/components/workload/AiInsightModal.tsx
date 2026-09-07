@@ -85,12 +85,17 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
               <InsightField label="สรุป" value={insight.summary} />
               <InsightField label="เหตุผล" value={insight.risk_reason} />
               <InsightField label="คำแนะนำ" value={insight.suggested_action} />
-              <div className="flex items-start gap-2 rounded-lg bg-surface-50 p-3 text-xs text-ink-500">
-                <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warning-500" />
-                <span>
-                  {insight.confidence_note}
-                  {insight.source === 'fallback' && ' (ยังไม่ได้เชื่อมต่อ AI — แสดงผลจากกฎการคำนวณ)'}
-                </span>
+              <div className="flex items-start gap-2 rounded-lg bg-surface-50 p-3 text-xs">
+                <ShieldAlert
+                  size={14}
+                  className={`mt-0.5 shrink-0 ${insight.source === 'fallback' ? 'text-warning-500' : 'text-primary-500'}`}
+                />
+                <div>
+                  <p className={`font-semibold ${insight.source === 'fallback' ? 'text-warning-700' : 'text-primary-700'}`}>
+                    {insight.source === 'fallback' ? 'โหมด Rule-Based — ยังไม่ได้เชื่อมต่อ AI' : 'วิเคราะห์โดย Gemini AI'}
+                  </p>
+                  <p className="mt-0.5 text-ink-500">{insight.confidence_note}</p>
+                </div>
               </div>
             </>
           )}

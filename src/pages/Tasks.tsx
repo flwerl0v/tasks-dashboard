@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { AlertOctagon, Clock, LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -12,9 +12,12 @@ import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
-import { SortHeader, TableHeadRow, TableBodyRow, TableFooter } from '../components/ui/tableParts'
+import { SortHeader, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
 import { isOverdue } from '../lib/stats'
+import { getTeamBadgeStyle } from '../lib/teamColor'
+import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
+import { formatDueDate } from '../lib/format'
 import { TaskBoard } from '../components/tasks/TaskBoard'
 import type { Task, TaskPriority, TaskStatus } from '../types'
 
@@ -215,58 +218,83 @@ export default function Tasks() {
         ) : (
           <Card>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full table-fixed border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
-                  <TableHeadRow>
-                    <th className="w-10 py-3 pl-3 font-medium">No</th>
-                    <th className="py-3 pr-4 font-medium">
+                  <tr className="text-[11px] uppercase tracking-wide text-ink-400">
+                    <th className="w-10 rounded-l-lg bg-surface-100 py-2.5 pl-4 font-semibold">No</th>
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="py-3 pr-4 font-medium">
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="ทีม" sortKey="team" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="py-3 pr-4 font-medium">
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="py-3 pr-4 font-medium">
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="py-3 pr-4 font-medium">
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="py-3 pr-4 font-medium">สถานะ</th>
-                    <th className="py-3 pr-4 font-medium">
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">สถานะ</th>
+                    <th className="bg-surface-100 py-2.5 pr-4 font-semibold">
                       <SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
                     </th>
-                    <th className="w-10 py-3 pr-3 font-medium text-right">Action</th>
-                  </TableHeadRow>
+                    <th className="w-16 rounded-r-lg bg-surface-100 py-2.5 pr-4 text-right font-semibold">Action</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {taskTable.paged.map((tsk, i) => {
                     const owner = memberById.get(tsk.owner_id ?? '')
+                    const team = teamById.get(tsk.team_id ?? '')
+                    const teamStyle = getTeamBadgeStyle(tsk.team_id)
+                    const overdue = isOverdue(tsk)
+                    const rowBg = STATUS_ROW_BG[tsk.status]
                     return (
-                      <TableBodyRow key={tsk.id} hoverable zebra={i % 2 === 1}>
-                        <td className="py-3 pl-3 text-xs text-ink-400">
+                      <tr key={tsk.id} className="group">
+                        <td
+                          className={`rounded-l-lg border-l-4 py-3.5 pl-4 text-xs text-ink-400 shadow-sm transition group-hover:brightness-95 ${rowBg}`}
+                          style={{ borderLeftColor: STATUS_COLORS[tsk.status] }}
+                        >
                           {(taskTable.page - 1) * taskTable.pageSize + i + 1}
                         </td>
-                        <td className="py-3 pr-4 font-medium text-ink-700">{tsk.title}</td>
-                        <td className="py-3 pr-4 text-ink-500">{teamById.get(tsk.team_id ?? '')?.name ?? '-'}</td>
-                        <td className="py-3 pr-4">
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <p className="truncate font-semibold text-ink-900">{tsk.title}</p>
+                        </td>
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium shadow-sm ${teamStyle.bg} ${teamStyle.text}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${teamStyle.dot}`} />
+                            {team?.name ?? 'ไม่ระบุทีม'}
+                          </span>
+                        </td>
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           {owner ? (
                             <div className="flex items-center gap-2">
-                              <Avatar id={owner.id} name={owner.name} />
-                              <span className="text-ink-600">{owner.name}</span>
+                              <div className="rounded-full shadow-sm ring-2 ring-white">
+                                <Avatar id={owner.id} name={owner.name} size={24} />
+                              </div>
+                              <span className="truncate text-ink-600">{owner.name}</span>
                             </div>
                           ) : (
                             <span className="text-ink-400">-</span>
                           )}
                         </td>
-                        <td className="py-3 pr-4"><PriorityFlag priority={tsk.priority} /></td>
-                        <td className={`py-3 pr-4 ${isOverdue(tsk) ? 'font-medium text-danger-600' : 'text-ink-500'}`}>
-                          {tsk.due_date ?? '-'}
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <PriorityFlag priority={tsk.priority} />
                         </td>
-                        <td className="py-3 pr-4">
-                            <DropdownSelect
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
+                              overdue ? 'bg-danger-100 text-danger-700' : 'text-ink-500'
+                            }`}
+                          >
+                            {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}
+                            {formatDueDate(tsk.due_date)}
+                          </span>
+                        </td>
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <DropdownSelect
                             value={tsk.status}
                             label="สถานะ"
                             options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
@@ -274,22 +302,23 @@ export default function Tasks() {
                             buttonClassName="px-3 py-1.5 text-sm"
                           />
                         </td>
-                        <td className="py-3 pr-4">
-                          {tsk.progress > 0 ? (
-                            <div className="flex items-center gap-2">
-                              <ProgressBar value={tsk.progress} size="sm" className="w-16" />
-                              <span className="text-xs tabular-nums text-ink-500">{tsk.progress}%</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-ink-300">-</span>
-                          )}
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                          <div className="flex items-center gap-2">
+                            <ProgressBar
+                              value={tsk.progress}
+                              size="sm"
+                              className="w-16"
+                              tone={tsk.progress >= 100 ? 'success' : tsk.progress >= 50 ? 'primary' : 'warning'}
+                            />
+                            <span className="tabular-nums text-xs text-ink-500">{tsk.progress}%</span>
+                          </div>
                         </td>
-                        <td className="py-3 pr-3">
+                        <td className={`rounded-r-lg py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => openEditTask(tsk)}
-                              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
+                              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100/70 hover:text-primary-600"
                               aria-label="แก้ไข"
                               title="แก้ไข"
                             >
@@ -306,7 +335,7 @@ export default function Tasks() {
                             </button>
                           </div>
                         </td>
-                      </TableBodyRow>
+                      </tr>
                     )
                   })}
                   {taskTable.paged.length === 0 && (

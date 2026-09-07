@@ -186,7 +186,7 @@ export default function WorkloadAI() {
                     <td className="py-2.5 pr-4 text-ink-500">{w.overdueCount}</td>
                     <td className="py-2.5 pr-4"><WorkloadBadge level={w.level} /></td>
                     <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.reason}</td>
-                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.suggestedAction ?? '-'}</td>
+                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.suggestedAction}</td>
                     <td className="py-2.5">
                       <button
                         type="button"

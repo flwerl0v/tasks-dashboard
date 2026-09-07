@@ -21,23 +21,8 @@ import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workloa
 import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
-import { STATUS_COLORS } from '../lib/colors'
-import type { TaskStatus } from '../types'
-
-const STATUS_ROW_BG: Record<TaskStatus, string> = {
-  todo: 'bg-primary-50/40',
-  doing: 'bg-warning-50/40',
-  done: 'bg-success-50/40',
-  blocked: 'bg-danger-50/50',
-}
-
-function formatDueDate(dueDate: string | null): string {
-  if (!dueDate) return '-'
-  const date = new Date(dueDate)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  return `${day}/${month}/${date.getFullYear()}`
-}
+import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
+import { formatDueDate } from '../lib/format'
 
 export default function Dashboard() {
   const { teams, members, tasks, loading, error } = useAppData()

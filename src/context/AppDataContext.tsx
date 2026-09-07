@@ -16,6 +16,8 @@ import {
   type NewTeamInput,
 } from '../lib/dataService'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
+import { toErrorMessage } from '../lib/errors'
+import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskStatus, Team } from '../types'
 
 interface AppDataContextValue {
@@ -41,6 +43,7 @@ interface AppDataContextValue {
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
+  const { showError } = useToast()
   const [teams, setTeams] = useState<Team[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -56,11 +59,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setMembers(data.members)
       setTasks(data.tasks)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ')
+      const message = toErrorMessage(err, 'โหลดข้อมูลไม่สำเร็จ')
+      setError(message)
+      showError(message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showError])
 
   useEffect(() => {
     // Load-on-mount: the one intended use of setState-in-effect (synchronizing with the DB).
