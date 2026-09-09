@@ -18,6 +18,7 @@ import { isOverdue } from '../lib/stats'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { formatDueDate } from '../lib/format'
+import { describeSupabaseError } from '../lib/errors'
 import { TaskBoard } from '../components/tasks/TaskBoard'
 import type { Task, TaskPriority, TaskStatus } from '../types'
 
@@ -150,7 +151,7 @@ export default function Tasks() {
       })
       setTaskModalOpen(false)
     } catch (err) {
-      setTaskFormError(err instanceof Error ? err.message : 'บันทึกงานไม่สำเร็จ')
+      setTaskFormError(describeSupabaseError(err, 'บันทึกงานไม่สำเร็จ'))
     } finally {
       setTaskSubmitting(false)
     }

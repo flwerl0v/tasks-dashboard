@@ -9,6 +9,7 @@ import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workloa
 import { countByStatus, countByTeamAndStatus } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
+import { toErrorMessage } from '../lib/errors'
 
 export default function Export() {
   const { teams, members, tasks } = useAppData()
@@ -35,7 +36,7 @@ export default function Export() {
       await exportSummaryXlsx(tasks, teams, members, workloads, charts)
     } catch (err) {
       console.error('[export] failed', err)
-      setExportError(err instanceof Error ? err.message : 'Export ไม่สำเร็จ')
+      setExportError(toErrorMessage(err, 'Export ไม่สำเร็จ'))
     } finally {
       setExporting(false)
     }

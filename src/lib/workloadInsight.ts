@@ -7,6 +7,7 @@ import type {
   TeamWorkloadSummaryInput,
 } from '../types'
 import { dueDateRiskReason } from './workload'
+import { describeFetchFailure, describeHttpFailure } from './aiFailureReason'
 
 const LEVEL_LABELS = { overload: 'เยอะเกิน', balanced: 'พอดี', underload: 'น้อยเกิน' } as const
 
@@ -76,24 +77,6 @@ function fallbackTeamInsight(teamSummary: TeamWorkloadSummary[]): AiWorkloadInsi
     source: 'fallback',
     generated_at: new Date().toISOString(),
   }
-}
-
-/** Turns an HTTP failure status into a specific, user-facing reason instead of a bare status code. */
-function describeHttpFailure(status: number): string {
-  if (status === 401 || status === 403) return `Edge Function ปฏิเสธการเข้าถึง (HTTP ${status}) — ตรวจสอบ API key/สิทธิ์`
-  if (status === 404) return 'ไม่พบ Edge Function ที่ระบุ (HTTP 404) — ตรวจสอบ URL endpoint'
-  if (status === 429) return 'เรียกใช้ AI เกิน quota ในขณะนี้ (HTTP 429 — Rate Limit)'
-  if (status >= 500) return `Edge Function มีปัญหาฝั่งเซิร์ฟเวอร์ (HTTP ${status})`
-  return `Edge Function ตอบกลับผิดปกติ (HTTP ${status})`
-}
-
-/** Turns a thrown fetch()/parsing error into a specific, user-facing reason. */
-function describeFetchFailure(err: unknown): string {
-  if (err instanceof DOMException && err.name === 'AbortError') return 'หมดเวลาเชื่อมต่อ (Timeout)'
-  if (err instanceof TypeError) return 'เชื่อมต่อเครือข่ายไม่ได้ (ตรวจสอบอินเทอร์เน็ตหรือการตั้งค่า CORS)'
-  if (err instanceof SyntaxError) return 'Edge Function ส่งข้อมูลกลับมาในรูปแบบที่อ่านไม่ได้ (แปลง JSON ไม่สำเร็จ)'
-  if (err instanceof Error) return err.message
-  return 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
 }
 
 function withFailureReason(fallback: AiWorkloadInsight, reason: string): AiWorkloadInsight {

@@ -23,6 +23,7 @@ import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { formatDueDate } from '../lib/format'
+import { toErrorMessage } from '../lib/errors'
 
 export default function Dashboard() {
   const { teams, members, tasks, loading, error } = useAppData()
@@ -74,7 +75,7 @@ export default function Dashboard() {
       await exportSummaryXlsx(tasks, teams, members, workloads, charts)
     } catch (err) {
       console.error('[export] failed', err)
-      setExportError(err instanceof Error ? err.message : 'Export ไม่สำเร็จ')
+      setExportError(toErrorMessage(err, 'Export ไม่สำเร็จ'))
     } finally {
       setExporting(false)
     }

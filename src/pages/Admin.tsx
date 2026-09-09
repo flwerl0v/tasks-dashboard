@@ -5,12 +5,14 @@ import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
+import { describeSupabaseError } from '../lib/errors'
 import type { Member, Task, Team } from '../types'
 
 export default function Admin() {
@@ -36,6 +38,9 @@ function TeamsPanel() {
   const [category, setCategory] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const [deleteTarget, setDeleteTarget] = useState<Team | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const membersByTeam = useMemo(() => {
     const map = new Map<string, Member[]>()
@@ -96,27 +101,27 @@ function TeamsPanel() {
       else await createTeam(payload)
       setModalOpen(false)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'บันทึกทีมไม่สำเร็จ')
+      setFormError(describeSupabaseError(err, 'บันทึกทีมไม่สำเร็จ'))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const remove = async (team: Team) => {
-    const memberCount = membersByTeam.get(team.id)?.length ?? 0
-    const taskCount = tasksByTeam.get(team.id)?.length ?? 0
-    const confirmed = window.confirm(
-      `ลบทีม "${team.name}"?${
-        memberCount || taskCount ? ` สมาชิก ${memberCount} คน และงาน ${taskCount} งาน ในทีมนี้จะกลายเป็น "ไม่มีทีม"` : ''
-      }`,
-    )
-    if (!confirmed) return
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteTeam(team.id)
+      await deleteTeam(deleteTarget.id)
+      setDeleteTarget(null)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'ลบทีมไม่สำเร็จ')
+      setRowError(describeSupabaseError(err, 'ลบทีมไม่สำเร็จ'))
+    } finally {
+      setDeleting(false)
     }
   }
+
+  const deleteMemberCount = deleteTarget ? membersByTeam.get(deleteTarget.id)?.length ?? 0 : 0
+  const deleteTaskCount = deleteTarget ? tasksByTeam.get(deleteTarget.id)?.length ?? 0 : 0
 
   const totalMembers = members.length
 
@@ -211,7 +216,7 @@ function TeamsPanel() {
                       items={
                         [
                           { label: 'แก้ไข', icon: Pencil, onClick: () => openEdit(team) },
-                          { label: 'ลบ', icon: Trash2, danger: true, onClick: () => void remove(team) },
+                          { label: 'ลบ', icon: Trash2, danger: true, onClick: () => setDeleteTarget(team) },
                         ] satisfies ActionMenuItem[]
                       }
                     />
@@ -321,6 +326,20 @@ function TeamsPanel() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={deleteTarget ? `ลบทีม "${deleteTarget.name}"?` : ''}
+        description={
+          deleteMemberCount || deleteTaskCount
+            ? `สมาชิก ${deleteMemberCount} คน และงาน ${deleteTaskCount} งาน ในทีมนี้จะกลายเป็น "ไม่มีทีม"`
+            : 'การลบทีมนี้ไม่สามารถย้อนกลับได้'
+        }
+        confirmLabel="ลบทีม"
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

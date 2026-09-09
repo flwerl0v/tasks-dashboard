@@ -74,14 +74,21 @@ Deno.serve(async (req: Request) => {
     }
 
     // กรณี Gemini API มีปัญหา หรือ Quota เต็ม
+    // สำคัญ: ส่ง status/detail ของ Gemini กลับไปด้วย (ไม่ใช่แค่ is_fallback) เพื่อให้ฝั่ง client
+    // บอกผู้ใช้ได้ชัดเจนว่าล้มเหลวเพราะอะไร (เช่น โควตา/Token หมด, API key ผิด) ไม่ใช่แค่ "AI ใช้งานไม่ได้"
     if (!response || !response.ok) {
       console.warn(`[ai-summary] Gemini API Error status ${response?.status}: ${geminiData?.error?.message}`)
-      
+
       const fallbackSummary = buildFallbackSummary(stats)
-      return new Response(JSON.stringify({ summary: fallbackSummary, is_fallback: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      return new Response(
+        JSON.stringify({
+          summary: fallbackSummary,
+          is_fallback: true,
+          status: response?.status,
+          detail: geminiData?.error?.message,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+      )
     }
 
     const finishReason = geminiData.candidates?.[0]?.finishReason
@@ -90,10 +97,14 @@ Deno.serve(async (req: Request) => {
     // ถ้าโดนตัดกลางประโยค (หมด token budget) ให้ใช้ fallback แทนข้อความที่ขาดๆ
     if (finishReason === 'MAX_TOKENS' || !rawText) {
       console.warn(`[ai-summary] Gemini response truncated or empty (finishReason=${finishReason})`)
-      return new Response(JSON.stringify({ summary: buildFallbackSummary(stats), is_fallback: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      return new Response(
+        JSON.stringify({
+          summary: buildFallbackSummary(stats),
+          is_fallback: true,
+          detail: finishReason === 'MAX_TOKENS' ? 'Gemini ตัดคำตอบกลางคันเพราะเกิน token budget ที่ตั้งไว้' : 'Gemini ตอบกลับว่างเปล่า',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+      )
     }
 
     const summary = rawText
@@ -110,9 +121,10 @@ Deno.serve(async (req: Request) => {
       ? buildFallbackSummary(stats) 
       : 'ภาพรวมภาระงานของทีมสัปดาห์นี้อยู่ในเกณฑ์ปกติ (ระบบวิเคราะห์ชั่วคราว)'
 
-    return new Response(JSON.stringify({ 
-      summary: fallbackText, 
-      error: err.message 
+    return new Response(JSON.stringify({
+      summary: fallbackText,
+      is_fallback: true,
+      error: err.message
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

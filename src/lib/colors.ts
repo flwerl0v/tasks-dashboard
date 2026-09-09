@@ -40,6 +40,13 @@ export const LEVEL_COLORS: Record<WorkloadLevel, string> = {
   underload: palette.warning[500],
 }
 
+/** Subtle per-level row tint for the "colored row" table style (Dashboard, Tasks list). */
+export const LEVEL_ROW_BG: Record<WorkloadLevel, string> = {
+  overload: 'bg-danger-50/50',
+  balanced: 'bg-success-50/40',
+  underload: 'bg-warning-50/40',
+}
+
 export const chartColors = {
   grid: palette.border.DEFAULT,
   cursor: palette.surface[100],
