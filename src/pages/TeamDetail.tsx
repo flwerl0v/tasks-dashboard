@@ -5,6 +5,7 @@ import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge'
@@ -16,6 +17,8 @@ import { SortHeader, TableToolbar, SelectionBar, TableFooter, TableHeadRow, Tabl
 import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
+import { describeSupabaseError } from '../lib/errors'
+import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskPriority, TaskStatus } from '../types'
 
 type DetailTab = 'overview' | 'tasks' | 'members'
@@ -70,6 +73,7 @@ export default function TeamDetail() {
     updateTask,
     deleteTask,
   } = useAppData()
+  const { showError } = useToast()
   const navigate = useNavigate()
   const [tab, setTab] = useState<DetailTab>('overview')
 
@@ -78,6 +82,8 @@ export default function TeamDetail() {
   const [category, setCategory] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false)
+  const [deletingTeam, setDeletingTeam] = useState(false)
 
   const [memberSearch, setMemberSearch] = useState('')
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null)
@@ -88,6 +94,10 @@ export default function TeamDetail() {
   const [memberFormError, setMemberFormError] = useState<string | null>(null)
   const [memberSubmitting, setMemberSubmitting] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
+  const [memberDeleteTarget, setMemberDeleteTarget] = useState<Member | null>(null)
+  const [deletingMember, setDeletingMember] = useState(false)
+  const [memberBulkDeleteOpen, setMemberBulkDeleteOpen] = useState(false)
+  const [deletingMembersBulk, setDeletingMembersBulk] = useState(false)
 
   const [taskSearch, setTaskSearch] = useState('')
   const [taskRowError, setTaskRowError] = useState<string | null>(null)
@@ -96,6 +106,10 @@ export default function TeamDetail() {
   const [taskForm, setTaskForm] = useState<TaskFormState>(EMPTY_TASK_FORM)
   const [taskFormError, setTaskFormError] = useState<string | null>(null)
   const [taskSubmitting, setTaskSubmitting] = useState(false)
+  const [taskDeleteTarget, setTaskDeleteTarget] = useState<Task | null>(null)
+  const [deletingTask, setDeletingTask] = useState(false)
+  const [taskBulkDeleteOpen, setTaskBulkDeleteOpen] = useState(false)
+  const [deletingTasksBulk, setDeletingTasksBulk] = useState(false)
 
   const team = useMemo(() => teams.find((tm) => tm.id === teamId), [teams, teamId])
   const teamMembers = useMemo(() => members.filter((m) => m.team_id === teamId), [members, teamId])
@@ -180,24 +194,23 @@ export default function TeamDetail() {
       await updateTeam(team.id, { name: trimmed, category: category.trim() || null })
       setEditOpen(false)
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'บันทึกทีมไม่สำเร็จ')
+      setFormError(describeSupabaseError(err, 'บันทึกทีมไม่สำเร็จ'))
     } finally {
       setSubmitting(false)
     }
   }
 
-  const removeTeam = async () => {
+  const confirmRemoveTeam = async () => {
     if (!team) return
-    const confirmed = window.confirm(
-      `ลบทีม "${team.name}"?${
-        teamMembers.length || teamTasks.length
-          ? ` สมาชิก ${teamMembers.length} คน และงาน ${teamTasks.length} งาน ในทีมนี้จะกลายเป็น "ไม่มีทีม"`
-          : ''
-      }`,
-    )
-    if (!confirmed) return
-    await deleteTeam(team.id)
-    navigate('/admin')
+    setDeletingTeam(true)
+    try {
+      await deleteTeam(team.id)
+      navigate('/admin')
+    } catch (err) {
+      showError(describeSupabaseError(err, 'ลบทีมไม่สำเร็จ'))
+    } finally {
+      setDeletingTeam(false)
+    }
   }
 
   const openAddMember = () => {
@@ -219,7 +232,10 @@ export default function TeamDetail() {
   const submitMember = async () => {
     if (!team) return
     const trimmed = memberName.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      setMemberFormError('กรุณากรอกข้อมูลให้ครบถ้วน')
+      return
+    }
     setMemberSubmitting(true)
     setMemberFormError(null)
     try {
@@ -227,40 +243,37 @@ export default function TeamDetail() {
       else await createMember({ name: trimmed, email: memberEmail.trim() || null, team_id: team.id })
       setMemberModalOpen(false)
     } catch (err) {
-      setMemberFormError(err instanceof Error ? err.message : 'บันทึกสมาชิกไม่สำเร็จ')
+      setMemberFormError(describeSupabaseError(err, 'บันทึกสมาชิกไม่สำเร็จ'))
     } finally {
       setMemberSubmitting(false)
     }
   }
 
-  const removeMember = async (member: Member) => {
-    const taskCount = taskCountByMember.get(member.id) ?? 0
-    const confirmed = window.confirm(
-      `ลบสมาชิก "${member.name}" ออกจากทีม?${taskCount ? ` งาน ${taskCount} งานที่มอบหมายให้จะกลายเป็น "ไม่มีผู้รับผิดชอบ"` : ''}`,
-    )
-    if (!confirmed) return
+  const confirmRemoveMember = async () => {
+    if (!memberDeleteTarget) return
+    setDeletingMember(true)
     try {
-      await deleteMember(member.id)
+      await deleteMember(memberDeleteTarget.id)
+      setMemberDeleteTarget(null)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'ลบสมาชิกไม่สำเร็จ')
+      setRowError(describeSupabaseError(err, 'ลบสมาชิกไม่สำเร็จ'))
+    } finally {
+      setDeletingMember(false)
     }
   }
 
-  const bulkRemoveMembers = async () => {
+  const confirmBulkRemoveMembers = async () => {
     const ids = [...memberTable.selected]
     if (ids.length === 0) return
-    const affectedTasks = ids.reduce((sum, id) => sum + (taskCountByMember.get(id) ?? 0), 0)
-    const confirmed = window.confirm(
-      `ลบสมาชิกที่เลือก ${ids.length} คน ออกจากทีม?${
-        affectedTasks ? ` งาน ${affectedTasks} งานที่มอบหมายให้จะกลายเป็น "ไม่มีผู้รับผิดชอบ"` : ''
-      }`,
-    )
-    if (!confirmed) return
+    setDeletingMembersBulk(true)
     try {
       for (const id of ids) await deleteMember(id)
       memberTable.clearSelection()
+      setMemberBulkDeleteOpen(false)
     } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'ลบสมาชิกไม่สำเร็จ')
+      setRowError(describeSupabaseError(err, 'ลบสมาชิกไม่สำเร็จ'))
+    } finally {
+      setDeletingMembersBulk(false)
     }
   }
 
@@ -311,7 +324,10 @@ export default function TeamDetail() {
   const submitTask = async () => {
     if (!team) return
     const title = taskForm.title.trim()
-    if (!title) return
+    if (!title || !taskForm.owner_id) {
+      setTaskFormError('กรุณากรอกข้อมูลให้ครบถ้วน')
+      return
+    }
     const progress = Math.max(0, Math.min(100, Number(taskForm.progress) || 0))
     const effort_days = Math.max(0, Number(taskForm.effort_days) || 0)
     const payload = {
@@ -331,32 +347,37 @@ export default function TeamDetail() {
       else await createTask(payload)
       setTaskModalOpen(false)
     } catch (err) {
-      setTaskFormError(err instanceof Error ? err.message : 'บันทึกงานไม่สำเร็จ')
+      setTaskFormError(describeSupabaseError(err, 'บันทึกงานไม่สำเร็จ'))
     } finally {
       setTaskSubmitting(false)
     }
   }
 
-  const removeTask = async (task: Task) => {
-    const confirmed = window.confirm(`ลบงาน "${task.title}"?`)
-    if (!confirmed) return
+  const confirmRemoveTask = async () => {
+    if (!taskDeleteTarget) return
+    setDeletingTask(true)
     try {
-      await deleteTask(task.id)
+      await deleteTask(taskDeleteTarget.id)
+      setTaskDeleteTarget(null)
     } catch (err) {
-      setTaskRowError(err instanceof Error ? err.message : 'ลบงานไม่สำเร็จ')
+      setTaskRowError(describeSupabaseError(err, 'ลบงานไม่สำเร็จ'))
+    } finally {
+      setDeletingTask(false)
     }
   }
 
-  const bulkDeleteTasks = async () => {
+  const confirmBulkDeleteTasks = async () => {
     const ids = [...taskTable.selected]
     if (ids.length === 0) return
-    const confirmed = window.confirm(`ลบงานที่เลือก ${ids.length} งาน?`)
-    if (!confirmed) return
+    setDeletingTasksBulk(true)
     try {
       for (const id of ids) await deleteTask(id)
       taskTable.clearSelection()
+      setTaskBulkDeleteOpen(false)
     } catch (err) {
-      setTaskRowError(err instanceof Error ? err.message : 'ลบงานไม่สำเร็จ')
+      setTaskRowError(describeSupabaseError(err, 'ลบงานไม่สำเร็จ'))
+    } finally {
+      setDeletingTasksBulk(false)
     }
   }
 
@@ -391,7 +412,7 @@ export default function TeamDetail() {
                     items={
                       [
                         { label: 'แก้ไขทีม', icon: Pencil, onClick: openEdit },
-                        { label: 'ลบทีม', icon: Trash2, danger: true, onClick: () => void removeTeam() },
+                        { label: 'ลบทีม', icon: Trash2, danger: true, onClick: () => setDeleteTeamConfirmOpen(true) },
                       ] satisfies ActionMenuItem[]
                     }
                   />
@@ -474,7 +495,7 @@ export default function TeamDetail() {
           {tab === 'tasks' && (
             <Card>
               <TableToolbar search={taskSearch} onSearchChange={setTaskSearch} createLabel="เพิ่มงาน" onCreate={openCreateTask} />
-              <SelectionBar count={taskTable.selected.size} onDelete={() => void bulkDeleteTasks()} onClear={taskTable.clearSelection} />
+              <SelectionBar count={taskTable.selected.size} onDelete={() => setTaskBulkDeleteOpen(true)} onClear={taskTable.clearSelection} />
               <ErrorNote message={taskRowError} />
 
               <div className="overflow-x-auto rounded-xl border border-border">
@@ -542,7 +563,7 @@ export default function TeamDetail() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void removeTask(tsk)}
+                              onClick={() => setTaskDeleteTarget(tsk)}
                               className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
                               aria-label="ลบ"
                               title="ลบ"
@@ -572,7 +593,7 @@ export default function TeamDetail() {
           {tab === 'members' && (
             <Card>
               <TableToolbar search={memberSearch} onSearchChange={setMemberSearch} createLabel="เพิ่มสมาชิก" onCreate={openAddMember} />
-              <SelectionBar count={memberTable.selected.size} onDelete={() => void bulkRemoveMembers()} onClear={memberTable.clearSelection} />
+              <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
               <div className="overflow-x-auto rounded-xl border border-border">
@@ -630,7 +651,7 @@ export default function TeamDetail() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void removeMember(member)}
+                              onClick={() => setMemberDeleteTarget(member)}
                               className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
                               aria-label="ลบออกจากทีม"
                               title="ลบออกจากทีม"
@@ -701,7 +722,7 @@ export default function TeamDetail() {
                 <button
                   type="button"
                   onClick={() => void submitMember()}
-                  disabled={memberSubmitting || !memberName.trim()}
+                  disabled={memberSubmitting}
                   className={primaryBtnClass}
                 >
                   {editingMemberId ? 'บันทึกการแก้ไข' : 'เพิ่มสมาชิก'}
@@ -743,7 +764,7 @@ export default function TeamDetail() {
                 <button
                   type="button"
                   onClick={() => void submitTask()}
-                  disabled={taskSubmitting || !taskForm.title.trim()}
+                  disabled={taskSubmitting}
                   className={primaryBtnClass}
                 >
                   {editingTaskId ? 'บันทึกการแก้ไข' : 'เพิ่มงาน'}
@@ -769,7 +790,7 @@ export default function TeamDetail() {
                   onChange={(e) => setTaskForm((f) => ({ ...f, owner_id: e.target.value }))}
                   className={inputClass}
                 >
-                  <option value="">ไม่มีผู้รับผิดชอบ</option>
+                  <option value="">-- เลือกผู้รับผิดชอบ --</option>
                   {teamMembers.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -839,6 +860,68 @@ export default function TeamDetail() {
           </Modal>
 
           <MemberDetailModal memberId={detailMemberId} onClose={() => setDetailMemberId(null)} />
+
+          <ConfirmDialog
+            open={deleteTeamConfirmOpen}
+            title={`ลบทีม "${team.name}"?`}
+            description={
+              teamMembers.length || teamTasks.length
+                ? `สมาชิก ${teamMembers.length} คน และงาน ${teamTasks.length} งาน ในทีมนี้จะกลายเป็น "ไม่มีทีม"`
+                : 'การลบทีมนี้ไม่สามารถย้อนกลับได้'
+            }
+            confirmLabel="ลบทีม"
+            loading={deletingTeam}
+            onConfirm={() => void confirmRemoveTeam()}
+            onCancel={() => setDeleteTeamConfirmOpen(false)}
+          />
+
+          <ConfirmDialog
+            open={!!memberDeleteTarget}
+            title={memberDeleteTarget ? `ลบสมาชิก "${memberDeleteTarget.name}" ออกจากทีม?` : ''}
+            description={
+              memberDeleteTarget && (taskCountByMember.get(memberDeleteTarget.id) ?? 0) > 0
+                ? `งาน ${taskCountByMember.get(memberDeleteTarget.id)} งานที่มอบหมายให้จะกลายเป็น "ไม่มีผู้รับผิดชอบ"`
+                : undefined
+            }
+            confirmLabel="ลบสมาชิก"
+            loading={deletingMember}
+            onConfirm={() => void confirmRemoveMember()}
+            onCancel={() => setMemberDeleteTarget(null)}
+          />
+
+          <ConfirmDialog
+            open={memberBulkDeleteOpen}
+            title={`ลบสมาชิกที่เลือก ${memberTable.selected.size} คน ออกจากทีม?`}
+            description={
+              [...memberTable.selected].reduce((sum, id) => sum + (taskCountByMember.get(id) ?? 0), 0) > 0
+                ? `งาน ${[...memberTable.selected].reduce((sum, id) => sum + (taskCountByMember.get(id) ?? 0), 0)} งานที่มอบหมายให้จะกลายเป็น "ไม่มีผู้รับผิดชอบ"`
+                : undefined
+            }
+            confirmLabel="ลบสมาชิก"
+            loading={deletingMembersBulk}
+            onConfirm={() => void confirmBulkRemoveMembers()}
+            onCancel={() => setMemberBulkDeleteOpen(false)}
+          />
+
+          <ConfirmDialog
+            open={!!taskDeleteTarget}
+            title={taskDeleteTarget ? `ลบงาน "${taskDeleteTarget.title}"?` : ''}
+            description="การลบงานนี้ไม่สามารถย้อนกลับได้"
+            confirmLabel="ลบงาน"
+            loading={deletingTask}
+            onConfirm={() => void confirmRemoveTask()}
+            onCancel={() => setTaskDeleteTarget(null)}
+          />
+
+          <ConfirmDialog
+            open={taskBulkDeleteOpen}
+            title={`ลบงานที่เลือก ${taskTable.selected.size} งาน?`}
+            description="การลบงานเหล่านี้ไม่สามารถย้อนกลับได้"
+            confirmLabel="ลบงาน"
+            loading={deletingTasksBulk}
+            onConfirm={() => void confirmBulkDeleteTasks()}
+            onCancel={() => setTaskBulkDeleteOpen(false)}
+          />
         </div>
       )}
     </AsyncState>

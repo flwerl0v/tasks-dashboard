@@ -16,7 +16,7 @@ import {
   type NewTeamInput,
 } from '../lib/dataService'
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient'
-import { toErrorMessage } from '../lib/errors'
+import { describeSupabaseError } from '../lib/errors'
 import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskStatus, Team } from '../types'
 
@@ -59,7 +59,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setMembers(data.members)
       setTasks(data.tasks)
     } catch (err) {
-      const message = toErrorMessage(err, 'โหลดข้อมูลไม่สำเร็จ')
+      const message = describeSupabaseError(err, 'โหลดข้อมูลไม่สำเร็จ')
       setError(message)
       showError(message)
     } finally {

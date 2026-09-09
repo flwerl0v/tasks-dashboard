@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
+import { describeSupabaseError } from '../../lib/errors'
 
 interface ToastItem {
   id: number
@@ -45,10 +46,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       showError(event.message || 'เกิดข้อผิดพลาดที่ไม่คาดคิด')
     }
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason
-      const message =
-        reason instanceof Error ? reason.message : typeof reason === 'string' ? reason : 'เกิดข้อผิดพลาดที่ไม่คาดคิด'
-      showError(message)
+      // Supabase errors are plain { message, code, ... } objects, not Error instances — route
+      // through describeSupabaseError so a paused-project/RLS/auth failure still reads clearly
+      // even if it slipped past every local try/catch.
+      showError(describeSupabaseError(event.reason, 'เกิดข้อผิดพลาดที่ไม่คาดคิด'))
     }
     window.addEventListener('error', onWindowError)
     window.addEventListener('unhandledrejection', onUnhandledRejection)

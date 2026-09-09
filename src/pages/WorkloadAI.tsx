@@ -16,6 +16,7 @@ import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
 import { WorkloadBadge } from '../components/ui/Badge'
+import { Avatar } from '../components/ui/Avatar'
 import { SearchInput } from '../components/ui/SearchInput'
 import { EmptyState } from '../components/ui/EmptyState'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
@@ -23,7 +24,7 @@ import { AiInsightModal } from '../components/workload/AiInsightModal'
 import { TeamWorkloadInsightCard } from '../components/workload/TeamWorkloadInsightCard'
 import { computeMemberWorkloads, computeTeamWorkloadSummary } from '../lib/workload'
 import { WORKLOAD_CONFIG } from '../lib/workloadConfig'
-import { LEVEL_COLORS, chartColors } from '../lib/colors'
+import { LEVEL_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
 import type { MemberWorkload, WorkloadLevel } from '../types'
 
 const LEVEL_LABELS: Record<WorkloadLevel, string> = { overload: 'เยอะเกิน', balanced: 'พอดี', underload: 'น้อยเกิน' }
@@ -160,45 +161,58 @@ export default function WorkloadAI() {
 
         <Card title="AI ประเมินภาระงานรายคน">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full table-fixed border-separate border-spacing-y-2 text-left text-sm">
               <thead>
-                <tr className="border-b border-border-100 text-xs text-ink-400">
-                  <th className="pb-2 pr-4 font-medium">ผู้รับผิดชอบ</th>
-                  <th className="pb-2 pr-4 font-medium">งานคงเหลือ</th>
-                  <th className="pb-2 pr-4 font-medium">Load Score</th>
-                  <th className="pb-2 pr-4 font-medium">เกินกำหนด</th>
-                  <th className="pb-2 pr-4 font-medium">สถานะ</th>
-                  <th className="pb-2 pr-4 font-medium">เหตุผลโดยย่อ</th>
-                  <th className="pb-2 pr-4 font-medium">คำแนะนำ</th>
-                  <th className="pb-2 font-medium">AI Insight</th>
+                <tr className="text-[11px] uppercase tracking-wide text-ink-400">
+                  <th className="w-[14%] rounded-l-lg bg-surface-100 py-2.5 pl-4 font-semibold">ผู้รับผิดชอบ</th>
+                  <th className="w-[8%] bg-surface-100 py-2.5 font-semibold">งานคงเหลือ</th>
+                  <th className="w-[9%] bg-surface-100 py-2.5 font-semibold">Load Score</th>
+                  <th className="w-[8%] bg-surface-100 py-2.5 font-semibold">เกินกำหนด</th>
+                  <th className="w-[9%] bg-surface-100 py-2.5 font-semibold">สถานะ</th>
+                  <th className="w-[24%] bg-surface-100 py-2.5 font-semibold">เหตุผลโดยย่อ</th>
+                  <th className="w-[20%] bg-surface-100 py-2.5 font-semibold">คำแนะนำ</th>
+                  <th className="w-[8%] rounded-r-lg bg-surface-100 py-2.5 pr-4 font-semibold">AI Insight</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredWorkloads.map((w) => (
-                  <tr key={w.member.id} className="border-b border-border-50 last:border-0 align-top">
-                    <td className="py-2.5 pr-4 font-medium text-ink-700">{w.member.name}</td>
-                    <td className="py-2.5 pr-4 text-ink-500">{w.openTaskCount}</td>
-                    <td className="py-2.5 pr-4">
-                      <span className="font-semibold" style={{ color: LEVEL_COLORS[w.level] }}>
-                        {w.loadScore}%
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-ink-500">{w.overdueCount}</td>
-                    <td className="py-2.5 pr-4"><WorkloadBadge level={w.level} /></td>
-                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.reason}</td>
-                    <td className="py-2.5 pr-4 max-w-xs text-ink-500">{w.suggestedAction}</td>
-                    <td className="py-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setInsightMember(w)}
-                        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
+                {filteredWorkloads.map((w) => {
+                  const rowBg = LEVEL_ROW_BG[w.level]
+                  return (
+                    <tr key={w.member.id} className="group align-top">
+                      <td
+                        className={`rounded-l-lg border-l-4 py-3 pl-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}
+                        style={{ borderLeftColor: LEVEL_COLORS[w.level] }}
                       >
-                        <Bot size={13} />
-                        ดู Insight
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-full shadow-sm ring-2 ring-white">
+                            <Avatar id={w.member.id} name={w.member.name} size={24} />
+                          </div>
+                          <span className="truncate font-semibold text-ink-900">{w.member.name}</span>
+                        </div>
+                      </td>
+                      <td className={`py-3 text-ink-500 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>{w.openTaskCount}</td>
+                      <td className={`py-3 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                        <span className="font-semibold" style={{ color: LEVEL_COLORS[w.level] }}>
+                          {w.loadScore}%
+                        </span>
+                      </td>
+                      <td className={`py-3 text-ink-500 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>{w.overdueCount}</td>
+                      <td className={`py-3 shadow-sm transition group-hover:brightness-95 ${rowBg}`}><WorkloadBadge level={w.level} /></td>
+                      <td className={`py-3 pr-3 text-ink-500 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>{w.reason}</td>
+                      <td className={`py-3 pr-3 text-ink-500 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>{w.suggestedAction}</td>
+                      <td className={`rounded-r-lg py-3 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                        <button
+                          type="button"
+                          onClick={() => setInsightMember(w)}
+                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
+                        >
+                          <Bot size={13} />
+                          ดู Insight
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
                 {filteredWorkloads.length === 0 && (
                   <tr>
                     <td colSpan={8}>

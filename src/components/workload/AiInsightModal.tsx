@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, RefreshCw, ShieldAlert } from 'lucide-react'
+import { RefreshCw, ShieldAlert } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { WorkloadBadge } from '../ui/Badge'
+import { GeminiIcon } from '../ui/GeminiIcon'
 import { generateMemberInsight } from '../../lib/workloadInsight'
 import type { AiWorkloadInsight, MemberWorkload, Task } from '../../types'
 
@@ -54,7 +55,7 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
       onClose={onClose}
       title={workload ? `AI Insight — ${workload.member.name}` : 'AI Insight'}
       description="สัญญาณช่วย Manager ตรวจสอบภาระงาน ไม่ใช่การชี้ขาดผลงาน"
-      icon={Bot}
+      icon={GeminiIcon}
       footer={
         workload && (
           <button
@@ -86,10 +87,11 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
               <InsightField label="เหตุผล" value={insight.risk_reason} />
               <InsightField label="คำแนะนำ" value={insight.suggested_action} />
               <div className="flex items-start gap-2 rounded-lg bg-surface-50 p-3 text-xs">
-                <ShieldAlert
-                  size={14}
-                  className={`mt-0.5 shrink-0 ${insight.source === 'fallback' ? 'text-warning-500' : 'text-primary-500'}`}
-                />
+                {insight.source === 'fallback' ? (
+                  <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warning-500" />
+                ) : (
+                  <GeminiIcon size={14} className="mt-0.5 shrink-0" />
+                )}
                 <div>
                   <p className={`font-semibold ${insight.source === 'fallback' ? 'text-warning-700' : 'text-primary-700'}`}>
                     {insight.source === 'fallback' ? 'โหมด Rule-Based — ยังไม่ได้เชื่อมต่อ AI' : 'วิเคราะห์โดย Gemini AI'}

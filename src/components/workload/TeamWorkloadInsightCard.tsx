@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { Bot, RefreshCw } from 'lucide-react'
+import { RefreshCw, ShieldAlert } from 'lucide-react'
 import { Card } from '../ui/Card'
+import { GeminiIcon } from '../ui/GeminiIcon'
 import { generateTeamWorkloadInsight } from '../../lib/workloadInsight'
 import type { AiWorkloadInsight, MemberWorkload, TeamWorkloadSummary } from '../../types'
 
@@ -56,23 +57,31 @@ export function TeamWorkloadInsightCard({ teamSummary, workloads }: TeamWorkload
         </button>
       }
     >
-      <div className="flex gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
-          <Bot size={18} />
+      <div className="flex gap-4 rounded-xl border border-accent-600/10 bg-gradient-to-br from-accent-50 via-surface to-surface p-4 sm:p-5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-border">
+          <GeminiIcon size={22} />
         </div>
-        <div className="space-y-2">
-          <p className="text-sm leading-relaxed text-ink-600">
-            {generating || !insight ? 'กำลังประมวลผลสรุปภาพรวมทีม...' : insight.summary}
-          </p>
-          {insight && !generating && (
+        <div className="min-w-0 flex-1 space-y-3">
+          {generating || !insight ? (
+            <p className="flex items-center gap-2 text-sm text-ink-400">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-600" />
+              กำลังประมวลผลสรุปภาพรวมทีม...
+            </p>
+          ) : (
             <>
+              <p className="text-sm font-medium leading-relaxed text-ink-800">{insight.summary}</p>
               <p className="text-sm leading-relaxed text-ink-500">{insight.suggested_action}</p>
-              <p className="text-xs italic text-ink-400">
-                <span className={`not-italic font-semibold ${insight.source === 'fallback' ? 'text-warning-600' : 'text-primary-600'}`}>
-                  {insight.source === 'fallback' ? 'โหมด Rule-Based: ' : 'Gemini AI: '}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    insight.source === 'fallback' ? 'bg-warning-100 text-warning-700' : 'bg-primary-100 text-primary-700'
+                  }`}
+                >
+                  {insight.source === 'fallback' ? <ShieldAlert size={12} /> : <GeminiIcon size={12} />}
+                  {insight.source === 'fallback' ? 'Rule-Based' : 'Gemini AI'}
                 </span>
-                {insight.confidence_note}
-              </p>
+                <span className="text-xs text-ink-400">{insight.confidence_note}</span>
+              </div>
             </>
           )}
         </div>
