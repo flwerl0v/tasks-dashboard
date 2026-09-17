@@ -294,7 +294,7 @@ export default function Tasks() {
                             {formatDueDate(tsk.due_date)}
                           </span>
                         </td>
-                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
+                        <td className={`py-3.5 pr-4 shadow-sm transition ${rowBg}`}>
                           <DropdownSelect
                             value={tsk.status}
                             label="สถานะ"
