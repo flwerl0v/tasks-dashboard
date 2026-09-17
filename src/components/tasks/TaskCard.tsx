@@ -25,7 +25,7 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
     : null
 
   return (
-  <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+  <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md">
     <div className="mb-3 flex items-start justify-between gap-3">
       <div className="flex flex-col gap-2">
         <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${badge.bg} ${badge.text}`}>

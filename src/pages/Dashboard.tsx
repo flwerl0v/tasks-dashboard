@@ -178,8 +178,8 @@ export default function Dashboard() {
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <span
-                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
-                              overdue ? 'bg-danger-100 text-danger-700' : 'text-ink-500'
+                            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
+                              overdue ? 'border-danger-200 bg-danger-100 text-danger-700' : 'border-border text-ink-500'
                             }`}
                           >
                             {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}

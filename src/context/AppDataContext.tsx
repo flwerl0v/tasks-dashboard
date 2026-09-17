@@ -27,6 +27,8 @@ interface AppDataContextValue {
   loading: boolean
   error: string | null
   isSupabaseConfigured: boolean
+  /** Ticks every 30s so date-derived views (overdue/due-soon badges, "today" labels) stay live without a manual refresh. */
+  now: Date
   refresh: () => Promise<void>
   setTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>
   createTeam: (input: NewTeamInput) => Promise<Team>
@@ -49,6 +51,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [now, setNow] = useState<Date>(() => new Date())
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -72,6 +75,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
   }, [refresh])
+
+  useEffect(() => {
+    // Keeps "now" fresh so anything derived from it (overdue/due-soon badges, the
+    // header date) updates live while the tab sits open, instead of only on the
+    // next unrelated re-render.
+    const tick = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(tick)
+  }, [])
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
@@ -170,6 +181,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       isSupabaseConfigured,
+      now,
       refresh,
       setTaskStatus,
       createTeam: handleCreateTeam,
@@ -188,6 +200,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tasks,
       loading,
       error,
+      now,
       refresh,
       setTaskStatus,
       handleCreateTeam,

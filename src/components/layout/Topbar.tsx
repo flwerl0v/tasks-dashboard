@@ -6,8 +6,8 @@ interface TopbarProps {
 }
 
 export function Topbar({ title, subtitle }: TopbarProps) {
-  const { isSupabaseConfigured, loading } = useAppData()
-  const today = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
+  const { isSupabaseConfigured, loading, now } = useAppData()
+  const today = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-4 md:px-8">
