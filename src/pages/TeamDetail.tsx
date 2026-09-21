@@ -792,7 +792,7 @@ export default function TeamDetail() {
                 <button
                   type="button"
                   onClick={() => void submitTask()}
-                  disabled={taskSubmitting}
+                  disabled={taskSubmitting || !taskForm.title.trim() || !taskForm.owner_id}
                   className={primaryBtnClass}
                 >
                   {editingTaskId ? 'บันทึกการแก้ไข' : 'เพิ่มงาน'}
@@ -823,6 +823,7 @@ export default function TeamDetail() {
                   ]}
                   onChange={(value) => setTaskForm((f) => ({ ...f, owner_id: value }))}
                 />
+                <p className="mt-1 text-[11px] text-ink-400">ทุกงานต้องมีผู้รับผิดชอบก่อนบันทึกได้ กันไม่ให้งานตกหล่นไม่มีเจ้าของ</p>
               </div>
               <div>
                 <label className={fieldLabelClass}>สถานะ</label>
