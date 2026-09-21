@@ -812,46 +812,36 @@ export default function TeamDetail() {
               </div>
               <div>
                 <label className={fieldLabelClass}>ผู้รับผิดชอบ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.owner_id}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, owner_id: e.target.value }))}
-                  className={inputClass}
-                >
-                  <option value="">-- เลือกผู้รับผิดชอบ --</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                  label="เลือกผู้รับผิดชอบ"
+                  fullWidth
+                  options={[
+                    { value: '', label: 'เลือกผู้รับผิดชอบ' },
+                    ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+                  ]}
+                  onChange={(value) => setTaskForm((f) => ({ ...f, owner_id: value }))}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>สถานะ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.status}
-                  onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-                  className={inputClass}
-                >
-                  {(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  label="สถานะ"
+                  fullWidth
+                  options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+                  onChange={(value) => handleStatusChange(value)}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>ระดับความสำคัญ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.priority}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
-                  className={inputClass}
-                >
-                  {(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  label="ระดับความสำคัญ"
+                  fullWidth
+                  options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({ value: p, label: p }))}
+                  onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>กำหนดส่ง</label>
