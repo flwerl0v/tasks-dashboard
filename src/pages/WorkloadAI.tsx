@@ -73,7 +73,13 @@ export default function WorkloadAI() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาชื่อผู้รับผิดชอบ" wrapperClassName="w-56" />
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหาชื่อผู้รับผิดชอบ"
+            wrapperClassName="w-56"
+            suggestions={members.map((m) => m.name)}
+          />
           <DropdownSelect
             value={teamFilter}
             label="ทุกทีม"

@@ -160,7 +160,13 @@ export default function Tasks() {
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-slate-50 p-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหางาน หรือผู้รับผิดชอบ..." wrapperClassName="w-64" />
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหางาน หรือผู้รับผิดชอบ"
+            wrapperClassName="w-64"
+            suggestions={[...tasks.map((tsk) => tsk.title), ...members.map((m) => m.name)]}
+          />
           <DropdownSelect
             value={statusFilter}
             label="ทุกสถานะ"
