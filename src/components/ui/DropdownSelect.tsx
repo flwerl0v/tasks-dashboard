@@ -97,7 +97,7 @@ export function DropdownSelect<T extends string>({
         className={`${selectClass} inline-flex ${fullWidth ? 'w-full' : 'w-auto min-w-fit max-w-[12rem]'} items-center gap-2 text-left ${buttonClassName}`}
       >
         {selectedOption?.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${selectedOption.dotClassName}`} />}
-        <span className={`truncate max-w-full whitespace-nowrap text-sm font-medium ${selectedOption?.accentClassName ?? 'text-slate-700'}`}>
+        <span className={`truncate max-w-full whitespace-nowrap text-sm font-medium ${selectedOption?.accentClassName ?? 'text-ink-700'}`}>
           {selectedLabel}
         </span>
       </button>
@@ -105,7 +105,7 @@ export function DropdownSelect<T extends string>({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[100] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+            className="fixed z-[100] overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
             style={{
               maxHeight: '60vh',
               left: position?.left ?? 0,
@@ -127,7 +127,7 @@ export function DropdownSelect<T extends string>({
                     setOpen(false)
                   }}
                   className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors ${
-                    active ? `bg-slate-50 font-semibold ${option.accentClassName ?? 'text-slate-900'}` : 'text-slate-700 hover:bg-slate-50'
+                    active ? `bg-surface-100 font-semibold ${option.accentClassName ?? 'text-ink-900'}` : 'text-ink-700 hover:bg-surface-50'
                   }`}
                 >
                   {option.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${option.dotClassName}`} />}
