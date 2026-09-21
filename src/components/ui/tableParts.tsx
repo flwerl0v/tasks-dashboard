@@ -86,13 +86,8 @@ export function TableToolbar({
 export function SelectionBar({ count, onDelete, onClear }: { count: number; onDelete: () => void; onClear: () => void }) {
   if (count === 0) return null
   return (
-    <div className="mb-3 flex items-center justify-between rounded-2xl border-l-4 border-primary-600 bg-surface px-4 py-3 text-sm shadow-sm ring-1 ring-border">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
-          {count}
-        </span>
-        <span className="font-medium text-ink-700">รายการที่เลือกแล้ว</span>
-      </div>
+    <div className="mb-3 flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm">
+      <span className="font-medium text-primary-700">เลือกแล้ว {count} รายการ</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
