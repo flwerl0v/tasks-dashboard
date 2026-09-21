@@ -284,7 +284,7 @@ export default function Tasks() {
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <DueDateChip task={tsk} />
                         </td>
-                        <td className={`py-3.5 pr-4 shadow-sm transition ${rowBg}`}>
+                        <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <DropdownSelect
                             value={tsk.status}
                             label="สถานะ"
