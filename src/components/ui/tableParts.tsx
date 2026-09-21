@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowUpDown, Plus, Search, Trash2 } from 'lucide-react'
 import { DropdownSelect } from './DropdownSelect'
 import { SearchInput } from './SearchInput'
-import { selectClass } from './formStyles'
+import { selectClass, cancelBtnClass } from './formStyles'
 import type { SortDir } from '../../lib/useTableState'
 
 export function SortHeader({
@@ -86,18 +86,18 @@ export function TableToolbar({
 export function SelectionBar({ count, onDelete, onClear }: { count: number; onDelete: () => void; onClear: () => void }) {
   if (count === 0) return null
   return (
-    <div className="mb-3 flex items-center justify-between rounded-lg border border-primary-100 bg-primary-50 px-4 py-2.5 text-sm">
+    <div className="mb-3 flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm">
       <span className="font-medium text-primary-700">เลือกแล้ว {count} รายการ</span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-700"
+          className="flex items-center gap-1.5 rounded-2xl bg-danger-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-danger-600/20 transition-colors hover:bg-danger-700"
         >
           <Trash2 size={13} />
           ลบที่เลือก
         </button>
-        <button type="button" onClick={onClear} className="text-xs font-medium text-ink-500 hover:underline">
+        <button type="button" onClick={onClear} className={cancelBtnClass}>
           ยกเลิกการเลือก
         </button>
       </div>
