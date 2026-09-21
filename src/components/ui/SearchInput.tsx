@@ -45,7 +45,16 @@ export function SearchInput({
   const matches = !suggestions || !query
     ? []
     : [...new Set(suggestions)]
-        .filter((item) => item.toLowerCase().includes(query) && item.toLowerCase() !== query)
+        .map((item) => ({ item, at: item.toLowerCase().indexOf(query) }))
+        // at === -1 means "no match" (filtered out below); at === query.length means it's
+        // already the exact value typed (nothing left to suggest) — both excluded.
+        .filter(({ item, at }) => at !== -1 && item.toLowerCase() !== query)
+        // Rank by *where* the match starts, not by whatever order the source list happened to
+        // list them in — "redesign..." (query matches at index 0) should outrank "ทดสอบ
+        // Realtime..." (query matches at index 6) for the same query, regardless of which task
+        // was created first.
+        .sort((a, b) => a.at - b.at || a.item.length - b.item.length)
+        .map(({ item }) => item)
         .slice(0, 8)
   const showMenu = open && matches.length > 0
 
