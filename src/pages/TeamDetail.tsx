@@ -823,7 +823,7 @@ export default function TeamDetail() {
                   ]}
                   onChange={(value) => setTaskForm((f) => ({ ...f, owner_id: value }))}
                 />
-                <p className="mt-1 text-[11px] text-ink-400">ทุกงานต้องมีผู้รับผิดชอบก่อนบันทึกได้ กันไม่ให้งานตกหล่นไม่มีเจ้าของ</p>
+                <p className="mt-1 text-[11px] text-ink-400">ทุกงานต้องมีผู้รับผิดชอบก่อนจึงจะบันทึกได้ กันไม่ให้งานตกหล่นโดยไม่มีผู้รับผิดชอบงาน</p>
               </div>
               <div>
                 <label className={fieldLabelClass}>สถานะ</label>
