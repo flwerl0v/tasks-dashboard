@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge'
+import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { ProgressBar } from '../components/ui/ProgressBar'
@@ -829,7 +830,11 @@ export default function TeamDetail() {
                   value={taskForm.status}
                   label="สถานะ"
                   fullWidth
-                  options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+                  options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                    value: s,
+                    label: s,
+                    ...statusDropdownOption(s),
+                  }))}
                   onChange={(value) => handleStatusChange(value)}
                 />
               </div>
@@ -839,7 +844,11 @@ export default function TeamDetail() {
                   value={taskForm.priority}
                   label="ระดับความสำคัญ"
                   fullWidth
-                  options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({ value: p, label: p }))}
+                  options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({
+                    value: p,
+                    label: p,
+                    ...priorityDropdownOption(p),
+                  }))}
                   onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
                 />
               </div>

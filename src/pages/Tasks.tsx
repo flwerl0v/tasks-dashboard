@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { PriorityFlag, DueDateChip } from '../components/ui/Badge'
+import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Avatar } from '../components/ui/Avatar'
 import { SearchInput } from '../components/ui/SearchInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
@@ -163,13 +164,21 @@ export default function Tasks() {
           <DropdownSelect
             value={statusFilter}
             label="ทุกสถานะ"
-            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s === 'all' ? 'ทุกสถานะ' : s }))}
+            options={STATUS_OPTIONS.map((s) => ({
+              value: s,
+              label: s === 'all' ? 'ทุกสถานะ' : s,
+              ...(s === 'all' ? {} : statusDropdownOption(s as TaskStatus)),
+            }))}
             onChange={(value) => setStatusFilter(value as TaskStatus | 'all')}
           />
           <DropdownSelect
             value={priorityFilter}
             label="ทุก Priority"
-            options={PRIORITY_OPTIONS.map((p) => ({ value: p, label: p === 'all' ? 'ทุก Priority' : p }))}
+            options={PRIORITY_OPTIONS.map((p) => ({
+              value: p,
+              label: p === 'all' ? 'ทุก Priority' : p,
+              ...(p === 'all' ? {} : priorityDropdownOption(p as TaskPriority)),
+            }))}
             onChange={(value) => setPriorityFilter(value as TaskPriority | 'all')}
           />
           <DropdownSelect
@@ -288,7 +297,11 @@ export default function Tasks() {
                           <DropdownSelect
                             value={tsk.status}
                             label="สถานะ"
-                            options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+                            options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                              value: s,
+                              label: s,
+                              ...statusDropdownOption(s),
+                            }))}
                             onChange={(value) => void setTaskStatus(tsk.id, value)}
                             buttonClassName="px-3 py-1.5 text-sm"
                           />
@@ -410,7 +423,11 @@ export default function Tasks() {
               value={taskForm.status}
               label="status"
               fullWidth
-              options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+              options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                value: s,
+                label: s,
+                ...statusDropdownOption(s),
+              }))}
               onChange={(value) => setTaskForm((f) => ({ ...f, status: value }))}
             />
           </div>
@@ -420,7 +437,11 @@ export default function Tasks() {
               value={taskForm.priority}
               label="priority"
               fullWidth
-              options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({ value: p, label: p }))}
+              options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({
+                value: p,
+                label: p,
+                ...priorityDropdownOption(p),
+              }))}
               onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
             />
           </div>

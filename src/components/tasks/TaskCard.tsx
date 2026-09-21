@@ -1,6 +1,7 @@
 import { AlertCircle, Calendar } from 'lucide-react'
 import type { Member, Task, TaskStatus, Team } from '../../types'
 import { PriorityBadge } from '../ui/Badge'
+import { statusDropdownOption } from '../../lib/dropdownColors'
 import { ProgressBar } from '../ui/ProgressBar'
 import { DropdownSelect } from '../ui/DropdownSelect'
 import { getTeamBadgeStyle } from '../../lib/teamColor'
@@ -82,7 +83,7 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
       <DropdownSelect
         value={task.status}
         label="สถานะ"
-        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s, ...statusDropdownOption(s) }))}
         onChange={(value) => onStatusChange(value)}
         buttonClassName="px-3 py-1 text-xs"
       />

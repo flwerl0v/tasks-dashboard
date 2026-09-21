@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { selectClass } from './formStyles'
 
 export interface DropdownOption<T extends string = string> {
   value: T
   label: string
+  /** Tailwind bg-* class for a small color dot next to the label (e.g. status/priority color-coding). */
+  dotClassName?: string
+  /** Tailwind text-* class applied to the label when this option is the selected one. */
+  accentClassName?: string
 }
 
 interface DropdownSelectProps<T extends string> {
@@ -63,16 +67,20 @@ export function DropdownSelect<T extends string>({
     }
   }, [open])
 
-  const selectedLabel = options.find((opt) => opt.value === value)?.label ?? label
+  const selectedOption = options.find((opt) => opt.value === value)
+  const selectedLabel = selectedOption?.label ?? label
 
   return (
     <div ref={ref} className={`relative ${fullWidth ? 'w-full' : 'inline-block'} ${className}`}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`${selectClass} inline-flex ${fullWidth ? 'w-full' : 'w-auto min-w-fit max-w-[12rem]'} items-center text-left ${buttonClassName}`}
+        className={`${selectClass} inline-flex ${fullWidth ? 'w-full' : 'w-auto min-w-fit max-w-[12rem]'} items-center gap-2 text-left ${buttonClassName}`}
       >
-        <span className="truncate max-w-full whitespace-nowrap text-sm text-slate-700">{selectedLabel}</span>
+        {selectedOption?.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${selectedOption.dotClassName}`} />}
+        <span className={`truncate max-w-full whitespace-nowrap text-sm font-medium ${selectedOption?.accentClassName ?? 'text-slate-700'}`}>
+          {selectedLabel}
+        </span>
       </button>
       {open && (
         <div
@@ -82,21 +90,25 @@ export function DropdownSelect<T extends string>({
           }`}
           style={{ maxHeight: '60vh' }}
         >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value)
-                setOpen(false)
-              }}
-              className={`w-full whitespace-nowrap px-3 py-2 text-left text-sm transition-colors ${
-                option.value === value ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+          {options.map((option) => {
+            const active = option.value === value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                }}
+                className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors ${
+                  active ? `bg-slate-50 font-semibold ${option.accentClassName ?? 'text-slate-900'}` : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {option.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${option.dotClassName}`} />}
+                {option.label}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
