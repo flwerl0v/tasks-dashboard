@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { selectClass } from './formStyles'
 
 export interface DropdownOption<T extends string = string> {
@@ -20,6 +21,14 @@ interface DropdownSelectProps<T extends string> {
   buttonClassName?: string
 }
 
+interface MenuPosition {
+  left: number
+  minWidth: number
+  // Exactly one of these is set, matching whichever side has room.
+  top?: number
+  bottom?: number
+}
+
 export function DropdownSelect<T extends string>({
   value,
   options,
@@ -32,12 +41,15 @@ export function DropdownSelect<T extends string>({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const [flipUp, setFlipUp] = useState(false)
+  const [position, setPosition] = useState<MenuPosition | null>(null)
 
   useEffect(() => {
     if (!open) return
+    // Menu is portaled to <body>, so it's a sibling of `ref`'s subtree, not a descendant —
+    // a click inside it must count as "inside" too, or it'd close before its own onClick fires.
     const handleClickOutside = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!ref.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false)
       }
     }
@@ -49,19 +61,26 @@ export function DropdownSelect<T extends string>({
     if (!open) return
     const updatePosition = () => {
       const el = ref.current
-      const menu = menuRef.current
-      if (!el || !menu) return
+      if (!el) return
       const rect = el.getBoundingClientRect()
-      const menuHeight = Math.min(menu.offsetHeight || 0, window.innerHeight * 0.6)
+      const menuHeight = Math.min(menuRef.current?.offsetHeight || 0, window.innerHeight * 0.6)
       const spaceBelow = window.innerHeight - rect.bottom
-      setFlipUp(spaceBelow < menuHeight + 8)
+      const flipUp = spaceBelow < menuHeight + 8
+      setPosition({
+        left: rect.left,
+        minWidth: rect.width,
+        ...(flipUp ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
+      })
     }
 
-    // calculate once and on scroll/resize
+    // calculate once (menu isn't rendered yet on the very first tick, so run again after mount)
+    // and keep it pinned to the trigger on scroll/resize.
     updatePosition()
+    const raf = requestAnimationFrame(updatePosition)
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition, true)
     return () => {
+      cancelAnimationFrame(raf)
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
     }
@@ -82,35 +101,43 @@ export function DropdownSelect<T extends string>({
           {selectedLabel}
         </span>
       </button>
-      {open && (
-        <div
-          ref={menuRef}
-          className={`absolute left-0 z-20 min-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg ${
-            flipUp ? 'bottom-full mb-2' : 'top-full mt-2'
-          }`}
-          style={{ maxHeight: '60vh' }}
-        >
-          {options.map((option) => {
-            const active = option.value === value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value)
-                  setOpen(false)
-                }}
-                className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors ${
-                  active ? `bg-slate-50 font-semibold ${option.accentClassName ?? 'text-slate-900'}` : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {option.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${option.dotClassName}`} />}
-                {option.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[100] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+            style={{
+              maxHeight: '60vh',
+              left: position?.left ?? 0,
+              minWidth: position?.minWidth ?? 0,
+              top: position?.top,
+              bottom: position?.bottom,
+              // Keep it off-screen (but still measurable) until position is computed, to avoid a flash at (0,0).
+              visibility: position ? 'visible' : 'hidden',
+            }}
+          >
+            {options.map((option) => {
+              const active = option.value === value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value)
+                    setOpen(false)
+                  }}
+                  className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm transition-colors ${
+                    active ? `bg-slate-50 font-semibold ${option.accentClassName ?? 'text-slate-900'}` : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${option.dotClassName}`} />}
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
