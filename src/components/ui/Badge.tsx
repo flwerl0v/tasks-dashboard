@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { CheckCircle2, CircleDashed, Clock, Flag, XCircle } from 'lucide-react'
-import type { TaskPriority, TaskStatus, WorkloadLevel } from '../../types'
+import { AlertOctagon, CheckCircle2, CircleDashed, Clock, Flag, XCircle } from 'lucide-react'
+import type { Task, TaskPriority, TaskStatus, WorkloadLevel } from '../../types'
+import { isOverdue } from '../../lib/stats'
+import { formatDueDate } from '../../lib/format'
 
 const STATUS_STYLES: Record<TaskStatus, string> = {
   todo: 'bg-primary-100 text-primary-700',
@@ -56,6 +58,20 @@ const WORKLOAD_LABELS: Record<WorkloadLevel, string> = {
   underload: 'น้อยเกิน',
 }
 
+const DUE_DATE_STYLES: Record<TaskStatus, string> = {
+  todo: 'border-primary-100 bg-primary-50 text-primary-700',
+  doing: 'border-warning-100 bg-warning-50 text-warning-700',
+  done: 'border-success-100 bg-success-50 text-success-700',
+  blocked: 'border-danger-100 bg-danger-50 text-danger-600',
+}
+
+const DUE_DATE_ICONS: Record<TaskStatus, typeof CheckCircle2> = {
+  todo: CircleDashed,
+  doing: Clock,
+  done: CheckCircle2,
+  blocked: XCircle,
+}
+
 function Pill({ className, children }: { className: string; children: ReactNode }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>{children}</span>
@@ -69,6 +85,24 @@ export function StatusBadge({ status }: { status: TaskStatus }) {
       <Icon size={12} />
       {STATUS_LABELS[status]}
     </Pill>
+  )
+}
+
+/**
+ * Due-date chip: overdue always wins (danger, regardless of status) since a missed
+ * deadline is the most urgent thing to flag; otherwise the color/icon follow the
+ * task's own status so todo/doing/done/blocked read apart at a glance, not just
+ * "overdue vs not."
+ */
+export function DueDateChip({ task }: { task: Task }) {
+  const overdue = isOverdue(task)
+  const className = overdue ? 'border-danger-200 bg-danger-100 text-danger-700' : DUE_DATE_STYLES[task.status]
+  const Icon = overdue ? AlertOctagon : DUE_DATE_ICONS[task.status]
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${className}`}>
+      <Icon size={13} />
+      {formatDueDate(task.due_date)}
+    </span>
   )
 }
 

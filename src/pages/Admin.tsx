@@ -26,11 +26,13 @@ export default function Admin() {
 }
 
 function TeamsPanel() {
-  const { teams, members, tasks, createTeam, updateTeam, deleteTeam } = useAppData()
+  const { teams, members, tasks, createTeam, updateTeam, deleteTeam, updateMember } = useAppData()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
   const [rowError, setRowError] = useState<string | null>(null)
+  const [assigningMemberId, setAssigningMemberId] = useState<string | null>(null)
+  const [assignError, setAssignError] = useState<string | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Team | null>(null)
@@ -65,6 +67,25 @@ function TeamsPanel() {
     [teams],
   )
 
+  const unassignedMembers = useMemo(
+    () => members.filter((m) => !m.team_id).sort((a, b) => a.name.localeCompare(b.name)),
+    [members],
+  )
+
+  const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.name.localeCompare(b.name)), [teams])
+
+  const assignMemberToTeam = async (memberId: string, teamId: string) => {
+    setAssigningMemberId(memberId)
+    setAssignError(null)
+    try {
+      await updateMember(memberId, { team_id: teamId })
+    } catch (err) {
+      setAssignError(describeSupabaseError(err, 'กำหนดทีมให้สมาชิกไม่สำเร็จ'))
+    } finally {
+      setAssigningMemberId(null)
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return teams.filter((tm) => {
@@ -92,11 +113,12 @@ function TeamsPanel() {
 
   const submit = async () => {
     const trimmed = name.trim()
-    if (!trimmed) return
+    const trimmedCategory = category.trim()
+    if (!trimmed || !trimmedCategory) return
     setSubmitting(true)
     setFormError(null)
     try {
-      const payload = { name: trimmed, category: category.trim() || null }
+      const payload = { name: trimmed, category: trimmedCategory }
       if (editing) await updateTeam(editing.id, payload)
       else await createTeam(payload)
       setModalOpen(false)
@@ -130,6 +152,46 @@ function TeamsPanel() {
       <p className="text-sm text-ink-500">
         <span className="font-semibold text-ink-800">{filtered.length} ทีม</span> · {totalMembers} สมาชิกทั้งหมด
       </p>
+
+      {unassignedMembers.length > 0 && (
+        <Card>
+          <div className="mb-3 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-warning-600" />
+            <p className="text-sm font-semibold text-ink-800">
+              สมาชิกที่ยังไม่มีทีม ({unassignedMembers.length})
+            </p>
+          </div>
+          <p className="mb-3 text-xs text-ink-500">
+            คนเหล่านี้ยังอยู่ในระบบและยังเป็นเจ้าของงานเดิมอยู่ แค่ไม่มีทีมสังกัด — เลือกทีมให้แต่ละคนได้เลย
+          </p>
+          <ErrorNote message={assignError} />
+          <div className="space-y-2">
+            {unassignedMembers.map((m) => (
+              <div
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-100 bg-warning-50/50 px-3 py-2"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-100 text-[11px] font-semibold text-ink-600">
+                    {m.name.trim().slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink-800">{m.name}</p>
+                    {m.email && <p className="truncate text-xs text-ink-400">{m.email}</p>}
+                  </div>
+                </div>
+                <DropdownSelect
+                  value=""
+                  label={assigningMemberId === m.id ? 'กำลังบันทึก...' : 'เลือกทีม'}
+                  options={sortedTeams.map((tm) => ({ value: tm.id, label: tm.name }))}
+                  onChange={(teamId) => void assignMemberToTeam(m.id, teamId)}
+                  buttonClassName={assigningMemberId === m.id ? 'opacity-60 pointer-events-none' : ''}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -288,7 +350,7 @@ function TeamsPanel() {
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={submitting || !name.trim()}
+              disabled={submitting || !name.trim() || !category.trim()}
               className={primaryBtnClass}
             >
               {editing ? 'บันทึก' : 'เพิ่มทีม'}
@@ -309,12 +371,12 @@ function TeamsPanel() {
             />
           </div>
           <div>
-            <label className={fieldLabelClass}>หมวดหมู่ (ไม่บังคับ)</label>
+            <label className={fieldLabelClass}>แผนก / สายงาน</label>
             <input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void submit()}
-              placeholder="เช่น คลินิก / ความงาม"
+              placeholder="เช่น Engineering, Marketing, QA"
               className={inputClass}
               list="team-categories"
             />
@@ -323,6 +385,7 @@ function TeamsPanel() {
                 <option key={c} value={c} />
               ))}
             </datalist>
+            <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
           </div>
         </div>
       </Modal>

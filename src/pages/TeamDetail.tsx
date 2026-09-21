@@ -10,6 +10,7 @@ import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
 import { StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { Pagination } from '../components/ui/Pagination'
+import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
@@ -91,6 +92,7 @@ export default function TeamDetail() {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   const [memberName, setMemberName] = useState('')
   const [memberEmail, setMemberEmail] = useState('')
+  const [memberTeamId, setMemberTeamId] = useState('')
   const [memberFormError, setMemberFormError] = useState<string | null>(null)
   const [memberSubmitting, setMemberSubmitting] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -187,11 +189,12 @@ export default function TeamDetail() {
   const submitEdit = async () => {
     if (!team) return
     const trimmed = name.trim()
-    if (!trimmed) return
+    const trimmedCategory = category.trim()
+    if (!trimmed || !trimmedCategory) return
     setSubmitting(true)
     setFormError(null)
     try {
-      await updateTeam(team.id, { name: trimmed, category: category.trim() || null })
+      await updateTeam(team.id, { name: trimmed, category: trimmedCategory })
       setEditOpen(false)
     } catch (err) {
       setFormError(describeSupabaseError(err, 'บันทึกทีมไม่สำเร็จ'))
@@ -225,6 +228,7 @@ export default function TeamDetail() {
     setEditingMemberId(member.id)
     setMemberName(member.name)
     setMemberEmail(member.email ?? '')
+    setMemberTeamId(member.team_id ?? '')
     setMemberFormError(null)
     setMemberModalOpen(true)
   }
@@ -239,7 +243,8 @@ export default function TeamDetail() {
     setMemberSubmitting(true)
     setMemberFormError(null)
     try {
-      if (editingMemberId) await updateMember(editingMemberId, { name: trimmed, email: memberEmail.trim() || null })
+      if (editingMemberId)
+        await updateMember(editingMemberId, { name: trimmed, email: memberEmail.trim() || null, team_id: memberTeamId || null })
       else await createMember({ name: trimmed, email: memberEmail.trim() || null, team_id: team.id })
       setMemberModalOpen(false)
     } catch (err) {
@@ -473,7 +478,7 @@ export default function TeamDetail() {
             <Card title="เกี่ยวกับทีม">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs text-ink-400">หมวดหมู่</dt>
+                  <dt className="text-xs text-ink-400">แผนก / สายงาน</dt>
                   <dd className="mt-0.5 text-sm font-medium text-ink-700">{team.category ?? '-'}</dd>
                 </div>
                 <div>
@@ -682,14 +687,14 @@ export default function TeamDetail() {
             open={editOpen}
             onClose={() => setEditOpen(false)}
             title="แก้ไขทีม"
-            description="แก้ไขชื่อและหมวดหมู่ของทีมนี้"
+            description="แก้ไขชื่อและแผนก/สายงานของทีมนี้"
             icon={Users}
             footer={
               <>
                 <button type="button" onClick={() => setEditOpen(false)} className={cancelBtnClass}>
                   ยกเลิก
                 </button>
-                <button type="button" onClick={() => void submitEdit()} disabled={submitting || !name.trim()} className={primaryBtnClass}>
+                <button type="button" onClick={() => void submitEdit()} disabled={submitting || !name.trim() || !category.trim()} className={primaryBtnClass}>
                   บันทึก
                 </button>
               </>
@@ -702,8 +707,14 @@ export default function TeamDetail() {
                 <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
               </div>
               <div>
-                <label className={fieldLabelClass}>หมวดหมู่ (ไม่บังคับ)</label>
-                <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} />
+                <label className={fieldLabelClass}>แผนก / สายงาน</label>
+                <input
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="เช่น Engineering, Marketing, QA"
+                  className={inputClass}
+                />
+                <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
               </div>
             </div>
           </Modal>
@@ -746,6 +757,22 @@ export default function TeamDetail() {
                 <label className={fieldLabelClass}>อีเมล (ไม่บังคับ)</label>
                 <input value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} className={inputClass} />
               </div>
+              {editingMemberId && (
+                <div>
+                  <label className={fieldLabelClass}>ทีม</label>
+                  <DropdownSelect
+                    value={memberTeamId}
+                    label="ไม่มีทีม"
+                    fullWidth
+                    options={[
+                      { value: '', label: 'ไม่มีทีม' },
+                      ...[...teams].sort((a, b) => a.name.localeCompare(b.name)).map((tm) => ({ value: tm.id, label: tm.name })),
+                    ]}
+                    onChange={(value) => setMemberTeamId(value)}
+                  />
+                  <p className="mt-1 text-[11px] text-ink-400">ย้ายสมาชิกคนนี้ไปทีมอื่น หรือเอาออกจากทีม (ไม่มีทีม) ได้จากตรงนี้</p>
+                </div>
+              )}
             </div>
           </Modal>
 
@@ -855,6 +882,7 @@ export default function TeamDetail() {
                   onChange={(e) => setTaskForm((f) => ({ ...f, effort_days: e.target.value }))}
                   className={inputClass}
                 />
+                <p className="mt-1 text-[11px] text-ink-400">ประมาณการวัน-คนที่ต้องใช้ทำงานนี้ให้เสร็จ มีผลต่อ Load Score ในหน้า Workload (AI)</p>
               </div>
             </div>
           </Modal>

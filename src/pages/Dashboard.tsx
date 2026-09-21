@@ -6,7 +6,7 @@ import { getTeamBadgeStyle } from '../lib/teamColor'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
-import { StatusBadge, PriorityFlag, WorkloadBadge } from '../components/ui/Badge'
+import { StatusBadge, PriorityFlag, WorkloadBadge, DueDateChip } from '../components/ui/Badge'
 import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ProgressBar } from '../components/ui/ProgressBar'
@@ -22,7 +22,6 @@ import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../li
 import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
-import { formatDueDate } from '../lib/format'
 import { toErrorMessage } from '../lib/errors'
 
 export default function Dashboard() {
@@ -144,7 +143,6 @@ export default function Dashboard() {
                     const owner = memberById.get(tsk.owner_id ?? '')
                     const team = teamById.get(tsk.team_id ?? '')
                     const teamStyle = getTeamBadgeStyle(tsk.team_id)
-                    const overdue = isOverdue(tsk)
                     const rowBg = STATUS_ROW_BG[tsk.status]
                     return (
                       <tr key={tsk.id} className="group">
@@ -177,14 +175,7 @@ export default function Dashboard() {
                           <PriorityFlag priority={tsk.priority} />
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
-                              overdue ? 'border-danger-200 bg-danger-100 text-danger-700' : 'border-border text-ink-500'
-                            }`}
-                          >
-                            {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}
-                            {formatDueDate(tsk.due_date)}
-                          </span>
+                          <DueDateChip task={tsk} />
                         </td>
                         <td className={`rounded-r-lg py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <div className="flex items-center gap-2">

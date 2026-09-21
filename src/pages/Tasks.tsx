@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { AlertOctagon, Clock, LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { PriorityFlag } from '../components/ui/Badge'
+import { PriorityFlag, DueDateChip } from '../components/ui/Badge'
 import { Avatar } from '../components/ui/Avatar'
 import { SearchInput } from '../components/ui/SearchInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
@@ -14,10 +14,8 @@ import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { SortHeader, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
-import { isOverdue } from '../lib/stats'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
-import { formatDueDate } from '../lib/format'
 import { describeSupabaseError } from '../lib/errors'
 import { TaskBoard } from '../components/tasks/TaskBoard'
 import type { Task, TaskPriority, TaskStatus } from '../types'
@@ -250,7 +248,6 @@ export default function Tasks() {
                     const owner = memberById.get(tsk.owner_id ?? '')
                     const team = teamById.get(tsk.team_id ?? '')
                     const teamStyle = getTeamBadgeStyle(tsk.team_id)
-                    const overdue = isOverdue(tsk)
                     const rowBg = STATUS_ROW_BG[tsk.status]
                     return (
                       <tr key={tsk.id} className="group">
@@ -285,14 +282,7 @@ export default function Tasks() {
                           <PriorityFlag priority={tsk.priority} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${
-                              overdue ? 'border-danger-200 bg-danger-100 text-danger-700' : 'border-border text-ink-500'
-                            }`}
-                          >
-                            {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}
-                            {formatDueDate(tsk.due_date)}
-                          </span>
+                          <DueDateChip task={tsk} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition ${rowBg}`}>
                           <DropdownSelect
@@ -463,6 +453,7 @@ export default function Tasks() {
               onChange={(e) => setTaskForm((f) => ({ ...f, effort_days: e.target.value }))}
               className={inputClass}
             />
+            <p className="mt-1 text-[11px] text-ink-400">ประมาณการวัน-คนที่ต้องใช้ทำงานนี้ให้เสร็จ มีผลต่อ Load Score ในหน้า Workload (AI)</p>
           </div>
         </div>
       </Modal>
