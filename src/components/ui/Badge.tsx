@@ -96,7 +96,7 @@ export function StatusBadge({ status }: { status: TaskStatus }) {
  */
 export function DueDateChip({ task }: { task: Task }) {
   const overdue = isOverdue(task)
-  const className = overdue ? 'border-danger-200 bg-danger-100 text-danger-700' : DUE_DATE_STYLES[task.status]
+  const className = overdue ? 'border-danger-100 bg-danger-100 text-danger-700' : DUE_DATE_STYLES[task.status]
   const Icon = overdue ? AlertOctagon : DUE_DATE_ICONS[task.status]
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${className}`}>
