@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { PriorityFlag, DueDateChip } from '../components/ui/Badge'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
-import { Avatar } from '../components/ui/Avatar'
+import { OwnerCell } from '../components/ui/Avatar'
 import { SearchInput } from '../components/ui/SearchInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -276,16 +276,7 @@ export default function Tasks() {
                           </span>
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          {owner ? (
-                            <div className="flex items-center gap-2">
-                              <div className="rounded-full shadow-sm ring-2 ring-white">
-                                <Avatar id={owner.id} name={owner.name} size={24} />
-                              </div>
-                              <span className="truncate text-ink-600">{owner.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-ink-400">-</span>
-                          )}
+                          <OwnerCell owner={owner} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <PriorityFlag priority={tsk.priority} />

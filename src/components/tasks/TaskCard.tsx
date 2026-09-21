@@ -1,4 +1,4 @@
-import { AlertCircle, Calendar } from 'lucide-react'
+import { AlertCircle, Calendar, UserX } from 'lucide-react'
 import type { Member, Task, TaskStatus, Team } from '../../types'
 import { PriorityBadge } from '../ui/Badge'
 import { statusDropdownOption } from '../../lib/dropdownColors'
@@ -70,12 +70,14 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
         {owner ? (
           <Avatar id={owner.id} name={owner.name} size={24} />
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-400">
-            -
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-600">
+            <UserX size={15} />
           </div>
         )}
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-800">{owner?.name ?? 'ยังไม่มอบหมาย'}</p>
+          <p className={`truncate text-sm font-medium ${owner ? 'text-slate-800' : 'text-warning-700'}`}>
+            {owner?.name ?? 'ยังไม่มอบหมาย'}
+          </p>
           <p className="text-xs text-slate-400">Owner</p>
         </div>
       </div>

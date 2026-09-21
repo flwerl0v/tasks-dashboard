@@ -7,7 +7,7 @@ import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge, PriorityFlag, WorkloadBadge, DueDateChip } from '../components/ui/Badge'
-import { Avatar } from '../components/ui/Avatar'
+import { OwnerCell } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { AiSummaryCard } from '../components/dashboard/AiSummaryCard'
@@ -157,16 +157,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          {owner ? (
-                            <div className="flex items-center gap-2">
-                              <div className="rounded-full shadow-sm ring-2 ring-white">
-                                <Avatar id={owner.id} name={owner.name} size={24} />
-                              </div>
-                              <span className="truncate text-ink-600">{owner.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-ink-400">-</span>
-                          )}
+                          <OwnerCell owner={owner} />
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <StatusBadge status={tsk.status} />
