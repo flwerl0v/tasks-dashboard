@@ -92,16 +92,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const finishReason = geminiData.candidates?.[0]?.finishReason
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+    // Gemini can split one answer across multiple parts[] entries even when finishReason is STOP —
+    // reading only parts[0] silently drops the rest, which looks exactly like mid-sentence truncation.
+    const parts = geminiData.candidates?.[0]?.content?.parts
+    const rawText: string | undefined = Array.isArray(parts)
+      ? parts.map((p: any) => p?.text ?? '').join('') || undefined
+      : undefined
 
-    // ถ้าโดนตัดกลางประโยค (หมด token budget) ให้ใช้ fallback แทนข้อความที่ขาดๆ
-    if (finishReason === 'MAX_TOKENS' || !rawText) {
+    // ถ้าโดนตัดกลางประโยค (หมด token budget, โดน safety filter, หรือเหตุผลอื่นที่ไม่ใช่ STOP)
+    // ให้ใช้ fallback แทนข้อความที่ขาดๆ แทนที่จะเช็คแค่ MAX_TOKENS เคสเดียว
+    if ((finishReason && finishReason !== 'STOP') || !rawText) {
       console.warn(`[ai-summary] Gemini response truncated or empty (finishReason=${finishReason})`)
+      const detail =
+        finishReason === 'MAX_TOKENS'
+          ? 'Gemini ตัดคำตอบกลางคันเพราะเกิน token budget ที่ตั้งไว้'
+          : finishReason && finishReason !== 'STOP'
+            ? `Gemini หยุดตอบกลางคัน (finishReason: ${finishReason})`
+            : 'Gemini ตอบกลับว่างเปล่า'
       return new Response(
         JSON.stringify({
           summary: buildFallbackSummary(stats),
           is_fallback: true,
-          detail: finishReason === 'MAX_TOKENS' ? 'Gemini ตัดคำตอบกลางคันเพราะเกิน token budget ที่ตั้งไว้' : 'Gemini ตอบกลับว่างเปล่า',
+          detail,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
       )
