@@ -37,11 +37,11 @@ export function OwnerCell({ owner }: { owner: Member | null | undefined }) {
     )
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-warning-600">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-warning-100">
-        <UserX size={13} />
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-warning-100 py-1 pl-1 pr-2.5 text-xs font-bold text-warning-700 ring-1 ring-warning-200">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-warning-500 text-white">
+        <UserX size={12} />
       </span>
-      <span className="text-xs font-semibold">ยังไม่มอบหมาย</span>
+      ยังไม่มอบหมาย
     </span>
   )
 }

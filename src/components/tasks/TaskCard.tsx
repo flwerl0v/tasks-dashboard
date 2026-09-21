@@ -45,6 +45,13 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
       </p>
     )}
 
+    {!owner && (
+      <p className="mb-3 flex items-center gap-2 rounded-2xl bg-warning-50 px-3 py-2 text-xs font-bold text-warning-700">
+        <UserX size={14} />
+        ยังไม่มีผู้รับผิดชอบ
+      </p>
+    )}
+
     {dueLabel && (
       <p className="mb-3 flex items-center gap-2 text-xs text-slate-500">
         <Calendar size={12} />
