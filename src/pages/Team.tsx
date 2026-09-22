@@ -57,7 +57,7 @@ export default function Team() {
 
         <Card>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม..." wrapperClassName="w-full max-w-xs" />
+            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-56" />
             <DropdownSelect
               value={teamFilter}
               label="ทุกทีม"
