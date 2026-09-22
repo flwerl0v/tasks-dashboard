@@ -12,6 +12,7 @@ import { StatusBadge, PriorityBadge } from '../components/ui/Badge'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
+import { SuggestInput } from '../components/ui/SuggestInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
@@ -713,18 +714,12 @@ export default function TeamDetail() {
               </div>
               <div>
                 <label className={fieldLabelClass}>แผนก / สายงาน</label>
-                <input
+                <SuggestInput
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={setCategory}
+                  suggestions={categories}
                   placeholder="เช่น Engineering, Marketing, QA"
-                  className={inputClass}
-                  list="team-categories-detail"
                 />
-                <datalist id="team-categories-detail">
-                  {categories.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
                 <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
               </div>
             </div>

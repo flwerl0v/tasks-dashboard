@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
+import { SuggestInput } from '../components/ui/SuggestInput'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
@@ -372,19 +373,13 @@ function TeamsPanel() {
           </div>
           <div>
             <label className={fieldLabelClass}>แผนก / สายงาน</label>
-            <input
+            <SuggestInput
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={setCategory}
               onKeyDown={(e) => e.key === 'Enter' && void submit()}
+              suggestions={categories}
               placeholder="เช่น Engineering, Marketing, QA"
-              className={inputClass}
-              list="team-categories"
             />
-            <datalist id="team-categories">
-              {categories.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
             <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
           </div>
         </div>
