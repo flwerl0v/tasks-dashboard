@@ -58,8 +58,12 @@ export function TeamWorkloadInsightCard({ teamSummary, workloads }: TeamWorkload
       }
     >
       <div className="flex gap-4 rounded-xl border border-accent-600/10 bg-gradient-to-br from-accent-50 via-surface to-surface p-4 sm:p-5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-border">
-          <GeminiIcon size={22} />
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-1 ${
+            insight?.source === 'fallback' ? 'bg-warning-50 text-warning-600 ring-warning-200' : 'bg-white ring-border'
+          }`}
+        >
+          {insight?.source === 'fallback' ? <ShieldAlert size={20} /> : <GeminiIcon size={22} />}
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           {generating || !insight ? (
