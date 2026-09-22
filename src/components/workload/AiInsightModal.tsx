@@ -58,8 +58,8 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
       icon={insight?.source === 'fallback' ? ShieldAlert : GeminiIcon}
       iconClassName={
         insight?.source === 'fallback'
-          ? 'bg-warning-50 text-warning-600 ring-1 ring-warning-100'
-          : 'bg-primary-50 text-primary-600 ring-1 ring-primary-100'
+          ? 'bg-warning-50 text-warning-600 ring-2 ring-warning-500/40'
+          : 'bg-primary-50 text-primary-600 ring-2 ring-primary-500/30'
       }
       footer={
         workload && (
