@@ -115,6 +115,10 @@ export default function TeamDetail() {
   const [deletingTasksBulk, setDeletingTasksBulk] = useState(false)
 
   const team = useMemo(() => teams.find((tm) => tm.id === teamId), [teams, teamId])
+  const categories = useMemo(
+    () => [...new Set(teams.map((tm) => tm.category).filter((c): c is string => Boolean(c)))].sort(),
+    [teams],
+  )
   const teamMembers = useMemo(() => members.filter((m) => m.team_id === teamId), [members, teamId])
   const teamTasks = useMemo(() => tasks.filter((t) => t.team_id === teamId), [tasks, teamId])
   const memberById = useMemo(() => new Map(teamMembers.map((m) => [m.id, m])), [teamMembers])
@@ -714,7 +718,13 @@ export default function TeamDetail() {
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="เช่น Engineering, Marketing, QA"
                   className={inputClass}
+                  list="team-categories-detail"
                 />
+                <datalist id="team-categories-detail">
+                  {categories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
                 <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
               </div>
             </div>
