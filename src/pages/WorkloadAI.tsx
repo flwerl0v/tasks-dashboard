@@ -22,18 +22,12 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { AiInsightModal } from '../components/workload/AiInsightModal'
 import { TeamWorkloadInsightCard } from '../components/workload/TeamWorkloadInsightCard'
-import { computeMemberWorkloads, computeTeamWorkloadSummary } from '../lib/workload'
+import { computeMemberWorkloads, computeTeamWorkloadSummary, workloadLevelForScore } from '../lib/workload'
 import { WORKLOAD_CONFIG } from '../lib/workloadConfig'
 import { LEVEL_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
 import type { MemberWorkload, WorkloadLevel } from '../types'
 
 const LEVEL_LABELS: Record<WorkloadLevel, string> = { overload: 'เยอะเกิน', balanced: 'พอดี', underload: 'น้อยเกิน' }
-
-function levelOf(loadScore: number): WorkloadLevel {
-  if (loadScore > WORKLOAD_CONFIG.overloadAbove) return 'overload'
-  if (loadScore < WORKLOAD_CONFIG.underloadBelow) return 'underload'
-  return 'balanced'
-}
 
 export default function WorkloadAI() {
   const { teams, members, tasks, loading, error } = useAppData()
@@ -60,7 +54,7 @@ export default function WorkloadAI() {
   const teamChartData = teamSummary.map((s) => ({
     name: s.team.name,
     loadScore: s.avgLoadScore,
-    level: levelOf(s.avgLoadScore),
+    level: workloadLevelForScore(s.avgLoadScore),
   }))
 
   return (

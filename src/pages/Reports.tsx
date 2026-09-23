@@ -8,10 +8,11 @@ import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
 import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
+import { WorkloadBadge } from '../components/ui/Badge'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
-import { computeMemberWorkloads, computeTeamWorkloadSummary, computeWeeklyClosedTrend } from '../lib/workload'
+import { computeMemberWorkloads, computeTeamWorkloadSummary, computeWeeklyClosedTrend, workloadLevelForScore } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue } from '../lib/stats'
-import { PRIORITY_COLORS, STATUS_COLORS, chartColors } from '../lib/colors'
+import { PRIORITY_COLORS, STATUS_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
 import type { TaskPriority, TaskStatus } from '../types'
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
@@ -272,12 +273,21 @@ export default function Reports() {
               <span className="ml-auto font-semibold text-ink-700">เฉลี่ยรวม {avgLoadScore}%</span>
             </div>
             <div className="space-y-2">
-              {teamWorkloadSummary.map((s) => (
-                <div key={s.team.id} className="flex items-center justify-between rounded-lg border border-border-100 px-3 py-2 text-sm">
-                  <span className="font-medium text-ink-700">{s.team.name}</span>
-                  <span className="text-xs text-ink-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</span>
-                </div>
-              ))}
+              {teamWorkloadSummary.map((s) => {
+                const level = s.memberCount > 0 ? workloadLevelForScore(s.avgLoadScore) : null
+                return (
+                  <div
+                    key={s.team.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border border-border-100 px-3 py-2 text-sm ${level ? LEVEL_ROW_BG[level] : ''}`}
+                  >
+                    <span className="font-medium text-ink-700">{s.team.name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-ink-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</span>
+                      {level && <WorkloadBadge level={level} />}
+                    </div>
+                  </div>
+                )
+              })}
               {teamWorkloadSummary.length === 0 && <p className="text-sm text-ink-400">ยังไม่มีทีมในระบบ</p>}
             </div>
           </Card>
@@ -288,12 +298,18 @@ export default function Reports() {
             ) : (
               <div className="space-y-2.5">
                 {topOverdueOwners.map(({ member, count }) => (
-                  <div key={member.id} className="flex items-center justify-between gap-2 rounded-lg border border-border-100 px-3 py-2 text-sm">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Avatar id={member.id} name={member.name} size={24} />
-                      <span className="truncate font-medium text-ink-700">{member.name}</span>
+                  <div key={member.id} className="relative overflow-hidden rounded-lg border border-border-100 px-3 py-2 text-sm">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-danger-50"
+                      style={{ width: `${Math.round((count / topOverdueOwners[0].count) * 100)}%` }}
+                    />
+                    <div className="relative flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Avatar id={member.id} name={member.name} size={24} />
+                        <span className="truncate font-medium text-ink-700">{member.name}</span>
+                      </div>
+                      <span className="shrink-0 text-xs font-semibold text-danger-600">{count} งาน</span>
                     </div>
-                    <span className="shrink-0 text-xs font-semibold text-danger-600">{count} งาน</span>
                   </div>
                 ))}
               </div>
