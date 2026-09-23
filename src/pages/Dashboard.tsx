@@ -21,7 +21,7 @@ import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workloa
 import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
-import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
+import { STATUS_COLORS, STATUS_ROW_BG, LEVEL_ROW_BG } from '../lib/colors'
 import { toErrorMessage } from '../lib/errors'
 
 export default function Dashboard() {
@@ -212,7 +212,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2.5">
               {workloads.slice(0, 3).map((w) => (
-                <div key={w.member.id} className="rounded-lg border border-border-100 p-3 text-sm">
+                <div key={w.member.id} className={`rounded-lg border border-border-100 p-3 text-sm ${LEVEL_ROW_BG[w.level]}`}>
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <p className="truncate font-semibold text-ink-800">{w.member.name}</p>
                     <WorkloadBadge level={w.level} />
