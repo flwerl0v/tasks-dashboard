@@ -7,9 +7,13 @@ interface ModalProps {
   title: string
   description?: string
   icon?: ComponentType<{ size?: number }>
-  /** Tailwind bg-/text- color classes for the icon chip — defaults to neutral primary; pass a
+  /** Tailwind bg-/text-/ring- color classes for the icon chip — defaults to neutral primary; pass a
    * danger-toned pair for destructive confirmations so the icon matches the action's severity. */
   iconClassName?: string
+  /** Overrides the chip's shape/size/shadow (default: a 40px rounded-xl square) — e.g. a rounded-full
+   * badge with a shadow, to match a card-style icon used elsewhere for the same content. */
+  iconWrapperClassName?: string
+  iconSize?: number
   children?: ReactNode
   footer?: ReactNode
   widthClassName?: string
@@ -22,6 +26,8 @@ export function Modal({
   description,
   icon: Icon,
   iconClassName = 'bg-primary-50 text-primary-600',
+  iconWrapperClassName = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+  iconSize = 19,
   children,
   footer,
   widthClassName = 'max-w-lg',
@@ -53,8 +59,8 @@ export function Modal({
         <div className="flex items-start justify-between gap-4 border-b border-border-100 px-6 py-5">
           <div className="flex items-start gap-3">
             {Icon && (
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
-                <Icon size={19} />
+              <span className={`${iconWrapperClassName} ${iconClassName}`}>
+                <Icon size={iconSize} />
               </span>
             )}
             <div>
