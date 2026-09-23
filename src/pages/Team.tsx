@@ -7,7 +7,7 @@ import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { Modal } from '../components/ui/Modal'
-import { inputClass, cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
+import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
 import type { Member, Task } from '../types'
@@ -17,7 +17,7 @@ export default function Team() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
-  const [confirmTeam, setConfirmTeam] = useState<{ id: string; name: string } | null>(null)
+  const [confirmTeamId, setConfirmTeamId] = useState<string | null>(null)
 
   const membersByTeam = useMemo(() => {
     const map = new Map<string, Member[]>()
@@ -47,6 +47,20 @@ export default function Team() {
   }, [teams, search, teamFilter])
 
   const totalMembers = members.length
+
+  const confirmTeamPreview = useMemo(() => {
+    const team = teams.find((tm) => tm.id === confirmTeamId)
+    if (!team) return null
+    const teamMembers = membersByTeam.get(team.id) ?? []
+    const teamTasks = tasksByTeam.get(team.id) ?? []
+    return {
+      team,
+      memberCount: teamMembers.length,
+      active: teamTasks.filter((t) => t.status !== 'done').length,
+      overdue: teamTasks.filter(isOverdue).length,
+      style: getTeamBadgeStyle(team.id),
+    }
+  }, [confirmTeamId, teams, membersByTeam, tasksByTeam])
 
   return (
     <AsyncState loading={loading} error={error}>
@@ -93,9 +107,9 @@ export default function Team() {
                     key={team.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setConfirmTeam({ id: team.id, name: team.name })}
+                    onClick={() => setConfirmTeamId(team.id)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') setConfirmTeam({ id: team.id, name: team.name })
+                      if (e.key === 'Enter') setConfirmTeamId(team.id)
                     }}
                     className={`cursor-pointer rounded-xl border border-t-4 border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md ${style.border}`}
                   >
@@ -163,22 +177,22 @@ export default function Team() {
         </Card>
       </div>
       <Modal
-        open={Boolean(confirmTeam)}
-        onClose={() => setConfirmTeam(null)}
+        open={Boolean(confirmTeamPreview)}
+        onClose={() => setConfirmTeamId(null)}
         title="ดูรายละเอียดทีม"
-        description={confirmTeam ? `คุณจะไปยังหน้าจัดการทีม ${confirmTeam.name} ใน Admin` : undefined}
+        description={confirmTeamPreview ? `คุณจะไปยังหน้าจัดการทีม ${confirmTeamPreview.team.name} ใน Admin` : undefined}
         icon={Info}
         widthClassName="max-w-md"
         footer={
           <>
-            <button type="button" onClick={() => setConfirmTeam(null)} className={cancelBtnClass}>
+            <button type="button" onClick={() => setConfirmTeamId(null)} className={cancelBtnClass}>
               ยกเลิก
             </button>
             <button
               type="button"
               onClick={() => {
-                if (confirmTeam) navigate(`/admin/teams/${confirmTeam.id}`)
-                setConfirmTeam(null)
+                if (confirmTeamPreview) navigate(`/admin/teams/${confirmTeamPreview.team.id}`)
+                setConfirmTeamId(null)
               }}
               className={primaryBtnClass}
             >
@@ -187,13 +201,42 @@ export default function Team() {
           </>
         }
       >
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-border-100 bg-surface-100 px-4 py-4 text-sm text-ink-600">
-            <p className="font-semibold text-ink-900">ทีมที่จะดู:</p>
-            <p className="mt-1 text-base font-medium text-ink-800">{confirmTeam?.name}</p>
+        {confirmTeamPreview && (
+          <div className={`rounded-2xl border border-t-4 border-border-100 bg-surface p-4 shadow-sm ${confirmTeamPreview.style.border}`}>
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white ${confirmTeamPreview.style.solid}`}
+              >
+                {confirmTeamPreview.team.name.trim().slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="truncate text-base font-semibold text-ink-900">{confirmTeamPreview.team.name}</p>
+                  {confirmTeamPreview.team.category && (
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${confirmTeamPreview.style.bg} ${confirmTeamPreview.style.text}`}>
+                      {confirmTeamPreview.team.category}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-lg bg-primary-50 px-2 py-2 text-center">
+                <p className="text-lg font-bold tabular-nums text-primary-600">{confirmTeamPreview.memberCount}</p>
+                <p className="text-[11px] text-primary-600/80">สมาชิก</p>
+              </div>
+              <div className="rounded-lg bg-warning-50 px-2 py-2 text-center">
+                <p className="text-lg font-bold tabular-nums text-warning-600">{confirmTeamPreview.active}</p>
+                <p className="text-[11px] text-warning-600/80">กำลังทำ</p>
+              </div>
+              <div className="rounded-lg bg-danger-50 px-2 py-2 text-center">
+                <p className="text-lg font-bold tabular-nums text-danger-600">{confirmTeamPreview.overdue}</p>
+                <p className="text-[11px] text-danger-600/80">เกินกำหนด</p>
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-ink-500">หน้าจัดการทีมใน Admin จะให้คุณดูรายละเอียดทีมเต็ม ทั้งสมาชิก งานที่มอบหมายและสถิติของทีมได้อย่างครบถ้วน</p>
-        </div>
+        )}
       </Modal>
   </AsyncState>
   )
