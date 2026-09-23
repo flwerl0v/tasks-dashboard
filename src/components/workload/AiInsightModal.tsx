@@ -84,28 +84,37 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
             </span>
           </div>
 
-          {loading || !insight ? (
-            <p className="text-sm text-ink-400">กำลังประมวลผล AI Insight...</p>
-          ) : (
-            <>
-              <InsightField label="สรุป" value={insight.summary} />
-              <InsightField label="เหตุผล" value={insight.risk_reason} />
-              <InsightField label="คำแนะนำ" value={insight.suggested_action} />
-              <div className="flex items-start gap-2 rounded-lg bg-surface-50 p-3 text-xs">
-                {insight.source === 'fallback' ? (
-                  <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warning-500" />
-                ) : (
-                  <GeminiIcon size={14} className="mt-0.5 shrink-0" />
-                )}
-                <div>
-                  <p className={`font-semibold ${insight.source === 'fallback' ? 'text-warning-700' : 'text-primary-700'}`}>
-                    {insight.source === 'fallback' ? 'โหมด Rule-Based — ยังไม่ได้เชื่อมต่อ AI' : 'วิเคราะห์โดย Gemini AI'}
-                  </p>
-                  <p className="mt-0.5 text-ink-500">{insight.confidence_note}</p>
+          <div
+            className={`rounded-xl border bg-gradient-to-br p-4 sm:p-5 ${
+              insight?.source === 'fallback'
+                ? 'border-warning-500/20 from-warning-50 via-surface to-surface'
+                : 'border-accent-600/10 from-accent-50 via-surface to-surface'
+            }`}
+          >
+            {loading || !insight ? (
+              <p className="flex items-center gap-2 text-sm text-ink-400">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-600" />
+                กำลังประมวลผล AI Insight...
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <InsightField label="สรุป" value={insight.summary} />
+                <InsightField label="เหตุผล" value={insight.risk_reason} />
+                <InsightField label="คำแนะนำ" value={insight.suggested_action} />
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      insight.source === 'fallback' ? 'bg-warning-100 text-warning-700' : 'bg-primary-100 text-primary-700'
+                    }`}
+                  >
+                    {insight.source === 'fallback' ? <ShieldAlert size={12} /> : <GeminiIcon size={12} />}
+                    {insight.source === 'fallback' ? 'Rule-Based' : 'Gemini AI'}
+                  </span>
+                  <span className="text-xs text-ink-400">{insight.confidence_note}</span>
                 </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       )}
     </Modal>
