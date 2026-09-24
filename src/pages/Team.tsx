@@ -7,10 +7,11 @@ import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { Modal } from '../components/ui/Modal'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
-import type { Member, Task } from '../types'
+import type { Member, Task, Team } from '../types'
 
 export default function Team() {
   const { teams, members, tasks, loading, error } = useAppData()
@@ -18,6 +19,7 @@ export default function Team() {
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
   const [confirmTeamId, setConfirmTeamId] = useState<string | null>(null)
+  const [pendingNavigateTeam, setPendingNavigateTeam] = useState<Team | null>(null)
 
   const membersByTeam = useMemo(() => {
     const map = new Map<string, Member[]>()
@@ -191,7 +193,7 @@ export default function Team() {
             <button
               type="button"
               onClick={() => {
-                if (confirmTeamPreview) navigate(`/admin/teams/${confirmTeamPreview.team.id}`)
+                if (confirmTeamPreview) setPendingNavigateTeam(confirmTeamPreview.team)
                 setConfirmTeamId(null)
               }}
               className={primaryBtnClass}
@@ -238,6 +240,22 @@ export default function Team() {
           </div>
         )}
       </Modal>
+      <ConfirmDialog
+        open={Boolean(pendingNavigateTeam)}
+        title="ยืนยันไปหน้า Admin"
+        description={
+          pendingNavigateTeam
+            ? `คุณกำลังจะออกจากหน้านี้ไปยังหน้าจัดการทีม "${pendingNavigateTeam.name}" ใน Admin ต้องการดำเนินการต่อหรือไม่?`
+            : undefined
+        }
+        confirmLabel="ไปที่ Admin"
+        tone="primary"
+        onCancel={() => setPendingNavigateTeam(null)}
+        onConfirm={() => {
+          if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
+          setPendingNavigateTeam(null)
+        }}
+      />
   </AsyncState>
   )
 }
