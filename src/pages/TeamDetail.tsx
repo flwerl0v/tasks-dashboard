@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
-import { StatusBadge, PriorityFlag, DueDateChip } from '../components/ui/Badge'
+import { StatusBadge, PriorityFlag, DueDateChip, WorkloadBadge } from '../components/ui/Badge'
 import { OwnerCell } from '../components/ui/Avatar'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
@@ -22,6 +22,7 @@ import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { isOverdue } from '../lib/stats'
+import { computeMemberWorkloads } from '../lib/workload'
 import { describeSupabaseError } from '../lib/errors'
 import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskPriority, TaskStatus } from '../types'
@@ -125,6 +126,10 @@ export default function TeamDetail() {
   const teamMembers = useMemo(() => members.filter((m) => m.team_id === teamId), [members, teamId])
   const teamTasks = useMemo(() => tasks.filter((t) => t.team_id === teamId), [tasks, teamId])
   const memberById = useMemo(() => new Map(teamMembers.map((m) => [m.id, m])), [teamMembers])
+  const workloadByMember = useMemo(
+    () => new Map(computeMemberWorkloads(teamMembers, tasks).map((w) => [w.member.id, w])),
+    [teamMembers, tasks],
+  )
   const anyMemberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
   const taskCountByMember = useMemo(() => {
     const map = new Map<string, number>()
@@ -613,97 +618,118 @@ export default function TeamDetail() {
               <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
-              <div className="overflow-x-auto rounded-2xl border border-border">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-50 text-xs">
-                      <th className="w-10 py-3 pl-4"></th>
-                      <th className="py-3 pr-4"><SortHeader label="ชื่อ" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4"><SortHeader label="อีเมล" sortKey="email" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4 text-right font-medium text-ink-500">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {memberTable.paged.map((member) => {
-                      const taskCount = taskCountByMember.get(member.id) ?? 0
-                      return (
-                        <tr key={member.id} className="border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/40">
-                          <td className="py-3.5 pl-4">
-                            <input
-                              type="checkbox"
-                              className="accent-primary-600"
-                              checked={memberTable.selected.has(member.id)}
-                              onChange={() => memberTable.toggleSelect(member.id)}
-                            />
-                          </td>
-                          <td className="py-3.5 pr-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
+                <label className="inline-flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="accent-primary-600"
+                    checked={memberTable.paged.length > 0 && memberTable.paged.every((m) => memberTable.selected.has(m.id))}
+                    onChange={() => memberTable.toggleSelectAll(memberTable.paged.map((m) => m.id))}
+                  />
+                  เลือกทั้งหมดในหน้านี้
+                </label>
+                <div className="flex items-center gap-2">
+                  <span>เรียงตาม</span>
+                  <DropdownSelect
+                    value={memberTable.sortKey ?? 'name'}
+                    label="ชื่อ"
+                    options={[
+                      { value: 'name', label: 'ชื่อ' },
+                      { value: 'email', label: 'อีเมล' },
+                      { value: 'tasks', label: 'งานที่ถือ' },
+                    ]}
+                    onChange={(key) => {
+                      if (key !== (memberTable.sortKey ?? 'name') || memberTable.sortKey === null) memberTable.toggleSort(key)
+                    }}
+                    buttonClassName="px-3 py-1.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              {memberTable.paged.length === 0 ? (
+                <EmptyState py="lg">{memberSearch ? 'ไม่พบสมาชิกที่ตรงกับการค้นหา' : 'ทีมนี้ยังไม่มีสมาชิก'}</EmptyState>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {memberTable.paged.map((member) => {
+                    const workload = workloadByMember.get(member.id)
+                    const taskCount = taskCountByMember.get(member.id) ?? 0
+                    const overdueCount = workload?.overdueCount ?? 0
+                    const style = getTeamBadgeStyle(member.id)
+                    const isSelected = memberTable.selected.has(member.id)
+                    return (
+                      <div
+                        key={member.id}
+                        className={`rounded-2xl border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md ${
+                          isSelected ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white shadow-md ring-2 ring-white ${style.solid}`}
+                          >
+                            {member.name.trim().slice(0, 1).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
                             <button
                               type="button"
                               onClick={() => setDetailMemberId(member.id)}
-                              className="group flex items-center gap-3 text-left"
+                              className="block max-w-full truncate text-left font-semibold text-ink-900 hover:text-primary-600 hover:underline"
                             >
-                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-ink-700 ring-2 ring-white ${getTeamBadgeStyle(member.id).bg}`}>
-                                {member.name.trim().slice(0, 1).toUpperCase()}
-                              </span>
-                              <span className="font-semibold text-ink-800 group-hover:text-primary-600">{member.name}</span>
+                              {member.name}
                             </button>
-                          </td>
-                          <td className="py-3.5 pr-4">
-                            {member.email ? (
-                              <span className="inline-flex items-center gap-1.5 text-ink-500">
-                                <Mail size={13} className="shrink-0 text-ink-300" />
-                                {member.email}
-                              </span>
-                            ) : (
-                              <span className="text-ink-300">ยังไม่ระบุอีเมล</span>
-                            )}
-                          </td>
-                          <td className="py-3.5 pr-4">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
-                                taskCount > 0 ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-ink-400'
-                              }`}
-                            >
-                              <ListChecks size={12} />
-                              {taskCount} งาน
-                            </span>
-                          </td>
-                          <td className="py-3.5 pr-4">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openEditMember(member)}
-                                className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
-                                aria-label="แก้ไข"
-                                title="แก้ไข"
-                              >
-                                <Pencil size={15} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMemberDeleteTarget(member)}
-                                className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
-                                aria-label="ลบออกจากทีม"
-                                title="ลบออกจากทีม"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {memberTable.paged.length === 0 && (
-                      <tr>
-                        <td colSpan={5}>
-                          <EmptyState py="lg">{memberSearch ? 'ไม่พบสมาชิกที่ตรงกับการค้นหา' : 'ทีมนี้ยังไม่มีสมาชิก'}</EmptyState>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-400">
+                              <Mail size={12} className="shrink-0" />
+                              {member.email ?? 'ยังไม่ระบุอีเมล'}
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            className="mt-1 accent-primary-600"
+                            checked={isSelected}
+                            onChange={() => memberTable.toggleSelect(member.id)}
+                            aria-label={`เลือก ${member.name}`}
+                          />
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-2">
+                          {workload && <WorkloadBadge level={workload.level} />}
+                          {workload && <span className="text-xs text-ink-400">Load {workload.loadScore}%</span>}
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <div className="rounded-lg bg-primary-50 px-2 py-2 text-center">
+                            <p className="text-lg font-bold tabular-nums text-primary-600">{taskCount}</p>
+                            <p className="text-[11px] text-primary-600/80">งานที่ถือ</p>
+                          </div>
+                          <div className={`rounded-lg px-2 py-2 text-center ${overdueCount > 0 ? 'bg-danger-50' : 'bg-surface-100'}`}>
+                            <p className={`text-lg font-bold tabular-nums ${overdueCount > 0 ? 'text-danger-600' : 'text-ink-400'}`}>{overdueCount}</p>
+                            <p className={`text-[11px] ${overdueCount > 0 ? 'text-danger-600/80' : 'text-ink-400'}`}>เกินกำหนด</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-end gap-1 border-t border-border-50 pt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditMember(member)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink-500 transition-colors hover:bg-surface-100 hover:text-primary-600"
+                          >
+                            <Pencil size={13} />
+                            แก้ไข
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMemberDeleteTarget(member)}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
+                          >
+                            <Trash2 size={13} />
+                            ลบ
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
               <TableFooter page={memberTable.page} pageSize={memberTable.pageSize} total={memberTable.total} onPageSizeChange={memberTable.setPageSize} />
               <Pagination page={memberTable.page} pageCount={memberTable.pageCount} onPageChange={memberTable.setPage} />
