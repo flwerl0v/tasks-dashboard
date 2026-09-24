@@ -282,17 +282,30 @@ export default function Team() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-border-100 bg-surface-50 px-3.5 py-3">
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white ${getTeamBadgeStyle(pendingNavigateTeam.id).solid}`}
-              >
-                {pendingNavigateTeam.name.trim().slice(0, 1).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink-800">{pendingNavigateTeam.name}</p>
-                <p className="text-xs text-ink-400">จะเปิดหน้าจัดการทีมนี้ใน Admin</p>
-              </div>
-            </div>
+            {(() => {
+              const style = getTeamBadgeStyle(pendingNavigateTeam.id)
+              return (
+                <div className="overflow-hidden rounded-2xl border border-border-100 bg-surface shadow-sm">
+                  <div className={`h-12 bg-gradient-to-r ${style.from} ${style.to}`} />
+                  <div className="-mt-6 flex flex-col items-center px-4 pb-4 text-center">
+                    <span
+                      className={`flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg font-bold shadow-md ring-4 ring-white ${style.text}`}
+                    >
+                      {pendingNavigateTeam.name.trim().slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="mt-2 flex max-w-full flex-wrap items-center justify-center gap-1.5">
+                      <p className="truncate text-base font-semibold text-ink-900">{pendingNavigateTeam.name}</p>
+                      {pendingNavigateTeam.category && (
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style.bg} ${style.text}`}>
+                          {pendingNavigateTeam.category}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-ink-400">จะเปิดหน้าจัดการทีมนี้ใน Admin</p>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
       </Modal>
