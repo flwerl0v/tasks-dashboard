@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChevronRight, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
-import { StatusBadge, PriorityFlag, DueDateChip } from '../components/ui/Badge'
+import { StatusBadge, PriorityFlag, DueDateChip, WorkloadBadge } from '../components/ui/Badge'
 import { OwnerCell } from '../components/ui/Avatar'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
@@ -22,6 +22,7 @@ import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { isOverdue } from '../lib/stats'
+import { computeMemberWorkloads } from '../lib/workload'
 import { describeSupabaseError } from '../lib/errors'
 import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskPriority, TaskStatus } from '../types'
@@ -135,6 +136,11 @@ export default function TeamDetail() {
     return map
   }, [tasks])
 
+  const workloadByMember = useMemo(
+    () => new Map(computeMemberWorkloads(teamMembers, tasks).map((w) => [w.member.id, w])),
+    [teamMembers, tasks],
+  )
+
   const active = teamTasks.filter((t) => t.status !== 'done').length
   const overdue = teamTasks.filter(isOverdue).length
 
@@ -180,7 +186,7 @@ export default function TeamDetail() {
   }, [teamMembers, memberSearch])
 
   const getMemberSortValue = (member: Member, key: string) => {
-    if (key === 'email') return (member.email ?? '').toLowerCase()
+    if (key === 'load') return workloadByMember.get(member.id)?.loadScore ?? 0
     if (key === 'tasks') return taskCountByMember.get(member.id) ?? 0
     return member.name.toLowerCase()
   }
@@ -618,20 +624,23 @@ export default function TeamDetail() {
                   <thead>
                     <tr className="border-b border-border bg-surface-50 text-xs">
                       <th className="w-10 py-3 pl-4"></th>
-                      <th className="py-3 pr-4"><SortHeader label="ชื่อ" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4"><SortHeader label="อีเมล" sortKey="email" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="py-3 pr-4 text-right font-medium text-ink-500">Action</th>
+                      <th className="py-3 pr-4"><SortHeader label="สมาชิก" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-44 py-3 pr-4"><SortHeader label="ภาระงาน" sortKey="load" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-28 py-3 pr-4"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-28 py-3 pr-4 font-medium text-ink-500">เกินกำหนด</th>
+                      <th className="w-24 py-3 pr-4 text-right font-medium text-ink-500">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {memberTable.paged.map((member) => {
                       const taskCount = taskCountByMember.get(member.id) ?? 0
+                      const w = workloadByMember.get(member.id)
+                      const overdueCount = w?.overdueCount ?? 0
                       return (
                         <tr
                           key={member.id}
                           onClick={() => setDetailMemberId(member.id)}
-                          className="cursor-pointer border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/60"
+                          className="group cursor-pointer border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/60"
                         >
                           <td className="py-3.5 pl-4" onClick={(e) => e.stopPropagation()}>
                             <input
@@ -642,27 +651,32 @@ export default function TeamDetail() {
                             />
                           </td>
                           <td className="py-3.5 pr-4">
-                            <button
-                              type="button"
-                              onClick={() => setDetailMemberId(member.id)}
-                              className="group flex items-center gap-3 text-left"
-                              title="ดูรายละเอียดสมาชิก"
-                            >
-                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-ink-700 ring-2 ring-white ${getTeamBadgeStyle(member.id).bg}`}>
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white ${getTeamBadgeStyle(member.id).solid}`}
+                              >
                                 {member.name.trim().slice(0, 1).toUpperCase()}
                               </span>
-                              <span className="font-semibold text-primary-700 underline-offset-2 group-hover:underline">{member.name}</span>
-                              <ChevronRight size={14} className="text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-600" />
-                            </button>
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1 font-semibold text-primary-700 group-hover:underline group-hover:underline-offset-2">
+                                  <span className="truncate">{member.name}</span>
+                                  <ChevronRight size={14} className="shrink-0 text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-600" />
+                                </p>
+                                <p className="flex items-center gap-1.5 truncate text-xs text-ink-400">
+                                  <Mail size={12} className="shrink-0" />
+                                  {member.email ?? 'ยังไม่ระบุอีเมล'}
+                                </p>
+                              </div>
+                            </div>
                           </td>
                           <td className="py-3.5 pr-4">
-                            {member.email ? (
-                              <span className="inline-flex items-center gap-1.5 text-ink-500">
-                                <Mail size={13} className="shrink-0 text-ink-300" />
-                                {member.email}
-                              </span>
+                            {w ? (
+                              <div className="flex flex-col items-start gap-1">
+                                <WorkloadBadge level={w.level} />
+                                <span className="text-[11px] tabular-nums text-ink-400">Load {w.loadScore}%</span>
+                              </div>
                             ) : (
-                              <span className="text-ink-300">ยังไม่ระบุอีเมล</span>
+                              <span className="text-ink-300">-</span>
                             )}
                           </td>
                           <td className="py-3.5 pr-4">
@@ -675,25 +689,35 @@ export default function TeamDetail() {
                               {taskCount} งาน
                             </span>
                           </td>
+                          <td className="py-3.5 pr-4">
+                            {overdueCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-danger-600">
+                                <AlertTriangle size={12} />
+                                {overdueCount} งาน
+                              </span>
+                            ) : (
+                              <span className="text-xs text-ink-300">ไม่มี</span>
+                            )}
+                          </td>
                           <td className="py-3.5 pr-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => openEditMember(member)}
-                                className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface text-ink-500 transition-colors hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600"
                                 aria-label="แก้ไข"
                                 title="แก้ไข"
                               >
-                                <Pencil size={15} />
+                                <Pencil size={14} />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setMemberDeleteTarget(member)}
-                                className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface text-danger-500 transition-colors hover:border-danger-500 hover:bg-danger-50 hover:text-danger-600"
                                 aria-label="ลบออกจากทีม"
                                 title="ลบออกจากทีม"
                               >
-                                <Trash2 size={15} />
+                                <Trash2 size={14} />
                               </button>
                             </div>
                           </td>
@@ -702,7 +726,7 @@ export default function TeamDetail() {
                     })}
                     {memberTable.paged.length === 0 && (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <EmptyState py="lg">{memberSearch ? 'ไม่พบสมาชิกที่ตรงกับการค้นหา' : 'ทีมนี้ยังไม่มีสมาชิก'}</EmptyState>
                         </td>
                       </tr>
