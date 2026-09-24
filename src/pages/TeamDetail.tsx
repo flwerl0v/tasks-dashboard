@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -628,8 +628,12 @@ export default function TeamDetail() {
                     {memberTable.paged.map((member) => {
                       const taskCount = taskCountByMember.get(member.id) ?? 0
                       return (
-                        <tr key={member.id} className="border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/40">
-                          <td className="py-3.5 pl-4">
+                        <tr
+                          key={member.id}
+                          onClick={() => setDetailMemberId(member.id)}
+                          className="cursor-pointer border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/60"
+                        >
+                          <td className="py-3.5 pl-4" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               className="accent-primary-600"
@@ -642,11 +646,13 @@ export default function TeamDetail() {
                               type="button"
                               onClick={() => setDetailMemberId(member.id)}
                               className="group flex items-center gap-3 text-left"
+                              title="ดูรายละเอียดสมาชิก"
                             >
                               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-ink-700 ring-2 ring-white ${getTeamBadgeStyle(member.id).bg}`}>
                                 {member.name.trim().slice(0, 1).toUpperCase()}
                               </span>
-                              <span className="font-semibold text-ink-800 group-hover:text-primary-600">{member.name}</span>
+                              <span className="font-semibold text-primary-700 underline-offset-2 group-hover:underline">{member.name}</span>
+                              <ChevronRight size={14} className="text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-600" />
                             </button>
                           </td>
                           <td className="py-3.5 pr-4">
@@ -669,7 +675,7 @@ export default function TeamDetail() {
                               {taskCount} งาน
                             </span>
                           </td>
-                          <td className="py-3.5 pr-4">
+                          <td className="py-3.5 pr-4" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
