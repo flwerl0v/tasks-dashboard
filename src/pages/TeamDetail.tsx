@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Clock, ListChecks, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -613,23 +613,23 @@ export default function TeamDetail() {
               <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
-              <div className="overflow-x-auto">
-                <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
+              <div className="overflow-x-auto rounded-2xl border border-border">
+                <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="text-[11px] tracking-wide text-ink-400">
-                      <th className="w-10 rounded-l-lg bg-surface-100 py-2.5 pl-4"></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ชื่อ" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="อีเมล" sortKey="email" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
-                      <th className="rounded-r-lg bg-surface-100 py-2.5 pr-4 text-right font-semibold">Action</th>
+                    <tr className="border-b border-border bg-surface-50 text-xs">
+                      <th className="w-10 py-3 pl-4"></th>
+                      <th className="py-3 pr-4"><SortHeader label="ชื่อ" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="py-3 pr-4"><SortHeader label="อีเมล" sortKey="email" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="py-3 pr-4"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="py-3 pr-4 text-right font-medium text-ink-500">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {memberTable.paged.map((member) => {
-                      const cell = 'bg-surface-50 py-3.5 shadow-sm transition group-hover:brightness-95'
+                      const taskCount = taskCountByMember.get(member.id) ?? 0
                       return (
-                        <tr key={member.id} className="group">
-                          <td className={`rounded-l-lg border-l-4 border-l-primary-500/40 pl-4 ${cell}`}>
+                        <tr key={member.id} className="border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/40">
+                          <td className="py-3.5 pl-4">
                             <input
                               type="checkbox"
                               className="accent-primary-600"
@@ -637,26 +637,44 @@ export default function TeamDetail() {
                               onChange={() => memberTable.toggleSelect(member.id)}
                             />
                           </td>
-                          <td className={`${cell} pr-4 font-medium`}>
+                          <td className="py-3.5 pr-4">
                             <button
                               type="button"
                               onClick={() => setDetailMemberId(member.id)}
-                              className="flex items-center gap-2.5 text-ink-900 hover:text-primary-600"
+                              className="group flex items-center gap-3 text-left"
                             >
-                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-ink-600 ${getTeamBadgeStyle(member.id).bg}`}>
+                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-ink-700 ring-2 ring-white ${getTeamBadgeStyle(member.id).bg}`}>
                                 {member.name.trim().slice(0, 1).toUpperCase()}
                               </span>
-                              <span className="font-semibold hover:underline">{member.name}</span>
+                              <span className="font-semibold text-ink-800 group-hover:text-primary-600">{member.name}</span>
                             </button>
                           </td>
-                          <td className={`${cell} pr-4 text-ink-500`}>{member.email ?? '-'}</td>
-                          <td className={`${cell} pr-4 text-ink-500`}>{taskCountByMember.get(member.id) ?? 0}</td>
-                          <td className={`rounded-r-lg ${cell} pr-4`}>
+                          <td className="py-3.5 pr-4">
+                            {member.email ? (
+                              <span className="inline-flex items-center gap-1.5 text-ink-500">
+                                <Mail size={13} className="shrink-0 text-ink-300" />
+                                {member.email}
+                              </span>
+                            ) : (
+                              <span className="text-ink-300">ยังไม่ระบุอีเมล</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 pr-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
+                                taskCount > 0 ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-ink-400'
+                              }`}
+                            >
+                              <ListChecks size={12} />
+                              {taskCount} งาน
+                            </span>
+                          </td>
+                          <td className="py-3.5 pr-4">
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
                                 onClick={() => openEditMember(member)}
-                                className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface hover:text-primary-600"
+                                className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
                                 aria-label="แก้ไข"
                                 title="แก้ไข"
                               >
@@ -665,7 +683,7 @@ export default function TeamDetail() {
                               <button
                                 type="button"
                                 onClick={() => setMemberDeleteTarget(member)}
-                                className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-surface hover:text-danger-600"
+                                className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
                                 aria-label="ลบออกจากทีม"
                                 title="ลบออกจากทีม"
                               >
