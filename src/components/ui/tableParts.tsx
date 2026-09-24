@@ -1,8 +1,7 @@
-import type { ReactNode } from 'react'
-import { ArrowUpDown, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowUpDown, Plus, Trash2 } from 'lucide-react'
 import { DropdownSelect } from './DropdownSelect'
 import { SearchInput } from './SearchInput'
-import { selectClass, cancelBtnClass } from './formStyles'
+import { cancelBtnClass } from './formStyles'
 import type { SortDir } from '../../lib/useTableState'
 
 export function SortHeader({
@@ -30,33 +29,6 @@ export function SortHeader({
   )
 }
 
-export function TableHeadRow({ children, shaded }: { children: ReactNode; shaded?: boolean }) {
-  return (
-    <tr className={`border-b border-border-100 text-xs text-ink-400 ${shaded ? 'bg-surface-50' : ''}`}>
-      {children}
-    </tr>
-  )
-}
-
-export function TableBodyRow({
-  children,
-  hoverable,
-  zebra,
-}: {
-  children: ReactNode
-  hoverable?: boolean
-  /** Shade this row with a subtle tint — pass `index % 2 === 1` for alternating rows. */
-  zebra?: boolean
-}) {
-  return (
-    <tr
-      className={`border-b border-border-50 last:border-0 transition-colors ${zebra ? 'bg-surface-50/60' : ''} ${hoverable ? 'hover:bg-surface-100/70' : ''}`}
-    >
-      {children}
-    </tr>
-  )
-}
-
 export function TableToolbar({
   search,
   onSearchChange,
@@ -70,11 +42,11 @@ export function TableToolbar({
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <SearchInput value={search} onChange={onSearchChange} placeholder="ค้นหา..." wrapperClassName="w-full max-w-xs" />
+      <SearchInput value={search} onChange={onSearchChange} placeholder="ค้นหา" wrapperClassName="w-56" />
       <button
         type="button"
         onClick={onCreate}
-        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100"
       >
         <Plus size={14} />
         {createLabel}
