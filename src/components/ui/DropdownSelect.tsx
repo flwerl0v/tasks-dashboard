@@ -94,7 +94,7 @@ export function DropdownSelect<T extends string>({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`${selectClass} inline-flex ${fullWidth ? 'w-full' : 'w-auto min-w-fit max-w-[12rem]'} items-center gap-2 text-left ${buttonClassName}`}
+        className={`${selectClass} inline-flex ${fullWidth ? 'w-full' : 'w-auto min-w-fit max-w-[12rem]'} items-center gap-2 text-left ${open ? 'border-primary-500 ring-4 ring-primary-500/10' : ''} ${buttonClassName}`}
       >
         {selectedOption?.dotClassName && <span className={`h-2 w-2 shrink-0 rounded-full ${selectedOption.dotClassName}`} />}
         <span className={`truncate max-w-full whitespace-nowrap text-sm font-medium ${selectedOption?.accentClassName ?? 'text-ink-700'}`}>
