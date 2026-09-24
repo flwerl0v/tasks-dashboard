@@ -27,9 +27,6 @@ export function AdminNavigateDialog({ open, from, team, onClose, onConfirm }: Ad
       title="ยืนยันไปหน้า Admin"
       description={`คุณกำลังจะออกจากหน้า ${from.label}`}
       icon={ShieldCheck}
-      iconWrapperClassName="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2"
-      iconClassName="bg-white text-primary-600 ring-primary-500/30"
-      iconSize={20}
       widthClassName="max-w-sm"
       footer={
         <>

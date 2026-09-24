@@ -56,11 +56,9 @@ export function AiInsightModal({ workload, tasks, onClose }: AiInsightModalProps
       title={workload ? `AI Insight — ${workload.member.name}` : 'AI Insight'}
       description="สัญญาณช่วย Manager ตรวจสอบภาระงาน ไม่ใช่การชี้ขาดผลงาน"
       icon={insight?.source === 'fallback' ? ShieldAlert : GeminiIcon}
-      iconWrapperClassName="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2"
       iconClassName={
         insight?.source === 'fallback' ? 'bg-warning-50 text-warning-600 ring-warning-500/40' : 'bg-white ring-primary-500/30'
       }
-      iconSize={20}
       footer={
         workload && (
           <button

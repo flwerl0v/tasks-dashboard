@@ -36,7 +36,7 @@ export function ConfirmDialog({
       onClose={onCancel}
       title={title}
       icon={AlertTriangle}
-      iconClassName={tone === 'danger' ? 'bg-danger-50 text-danger-600' : 'bg-primary-50 text-primary-600'}
+      iconClassName={tone === 'danger' ? 'bg-danger-50 text-danger-600 ring-danger-500/30' : 'bg-white text-primary-600 ring-primary-500/30'}
       widthClassName="max-w-sm"
       footer={
         <>
