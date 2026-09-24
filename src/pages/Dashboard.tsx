@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertOctagon, CheckCircle2, Clock, FileSpreadsheet, ListTodo, ShieldCheck, TimerReset, Info } from 'lucide-react'
+import { AlertOctagon, CheckCircle2, Clock, FileSpreadsheet, ListTodo, ShieldCheck, TimerReset, LayoutDashboard } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -15,8 +15,8 @@ import { StatusDonutChart } from '../components/charts/StatusDonutChart'
 import { TeamStatusBarChart } from '../components/charts/TeamStatusBarChart'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
-import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
-import { Modal } from '../components/ui/Modal'
+import { primaryBtnClass } from '../components/ui/formStyles'
+import { AdminNavigateDialog } from '../components/ui/AdminNavigateDialog'
 import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
@@ -265,36 +265,15 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-        <Modal
+        <AdminNavigateDialog
           open={confirmAdmin}
+          from={{ label: 'Dashboard', icon: LayoutDashboard }}
           onClose={() => setConfirmAdmin(false)}
-          title="ไปที่หน้า Admin"
-          description="คุณต้องการไปยังหน้าจัดการข้อมูล (Admin) หรือไม่?"
-          icon={Info}
-          widthClassName="max-w-md"
-          footer={
-            <>
-              <button type="button" onClick={() => setConfirmAdmin(false)} className={cancelBtnClass}>
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmAdmin(false)
-                  navigate('/admin')
-                }}
-                className={primaryBtnClass}
-              >
-                ไปที่ Admin
-              </button>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <p className="text-sm text-ink-600">หน้าจัดการ (Admin) ให้คุณจัดการทีม สมาชิก และดูสรุปข้อมูลทั้งหมดของระบบ</p>
-            <p className="text-sm text-ink-500">คลิก "ไปที่ Admin" เพื่อไปยังหน้าจัดการ</p>
-          </div>
-        </Modal>
+          onConfirm={() => {
+            setConfirmAdmin(false)
+            navigate('/admin')
+          }}
+        />
     </AsyncState>
   )
 }

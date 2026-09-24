@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Info, ShieldCheck, Users } from 'lucide-react'
+import { AlertTriangle, Info, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { Modal } from '../components/ui/Modal'
+import { AdminNavigateDialog } from '../components/ui/AdminNavigateDialog'
 import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
@@ -239,76 +240,16 @@ export default function Team() {
           </div>
         )}
       </Modal>
-      <Modal
+      <AdminNavigateDialog
         open={Boolean(pendingNavigateTeam)}
+        from={{ label: 'Team', icon: Users }}
+        team={pendingNavigateTeam}
         onClose={() => setPendingNavigateTeam(null)}
-        title="ยืนยันไปหน้า Admin"
-        description="คุณกำลังจะออกจากหน้า Team"
-        icon={ShieldCheck}
-        iconWrapperClassName="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2"
-        iconClassName="bg-white text-primary-600 ring-primary-500/30"
-        iconSize={20}
-        widthClassName="max-w-sm"
-        footer={
-          <>
-            <button type="button" onClick={() => setPendingNavigateTeam(null)} className={cancelBtnClass}>
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
-                setPendingNavigateTeam(null)
-              }}
-              className={`${primaryBtnClass} inline-flex items-center gap-1.5`}
-            >
-              ไปที่ Admin
-              <ArrowRight size={15} />
-            </button>
-          </>
-        }
-      >
-        {pendingNavigateTeam && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-50 px-3 py-1.5 text-xs font-medium text-ink-600">
-                <Users size={14} />
-                Team
-              </span>
-              <ArrowRight size={16} className="text-ink-300" />
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700">
-                <ShieldCheck size={14} />
-                Admin
-              </span>
-            </div>
-
-            {(() => {
-              const style = getTeamBadgeStyle(pendingNavigateTeam.id)
-              return (
-                <div className="overflow-hidden rounded-2xl border border-border-100 bg-surface shadow-sm">
-                  <div className={`h-12 bg-gradient-to-r ${style.from} ${style.to}`} />
-                  <div className="-mt-6 flex flex-col items-center px-4 pb-4 text-center">
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-full bg-white text-lg font-bold shadow-md ring-4 ring-white ${style.text}`}
-                    >
-                      {pendingNavigateTeam.name.trim().slice(0, 1).toUpperCase()}
-                    </span>
-                    <div className="mt-2 flex max-w-full flex-wrap items-center justify-center gap-1.5">
-                      <p className="truncate text-base font-semibold text-ink-900">{pendingNavigateTeam.name}</p>
-                      {pendingNavigateTeam.category && (
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style.bg} ${style.text}`}>
-                          {pendingNavigateTeam.category}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-ink-400">จะเปิดหน้าจัดการทีมนี้ใน Admin</p>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        )}
-      </Modal>
+        onConfirm={() => {
+          if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
+          setPendingNavigateTeam(null)
+        }}
+      />
   </AsyncState>
   )
 }
