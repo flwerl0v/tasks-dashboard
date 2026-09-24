@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Info, ShieldCheck, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { Modal } from '../components/ui/Modal'
-import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
@@ -240,22 +239,63 @@ export default function Team() {
           </div>
         )}
       </Modal>
-      <ConfirmDialog
+      <Modal
         open={Boolean(pendingNavigateTeam)}
+        onClose={() => setPendingNavigateTeam(null)}
         title="ยืนยันไปหน้า Admin"
-        description={
-          pendingNavigateTeam
-            ? `คุณกำลังจะออกจากหน้านี้ไปยังหน้าจัดการทีม "${pendingNavigateTeam.name}" ใน Admin ต้องการดำเนินการต่อหรือไม่?`
-            : undefined
+        description="คุณกำลังจะออกจากหน้า Team"
+        icon={ShieldCheck}
+        iconWrapperClassName="flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2"
+        iconClassName="bg-white text-primary-600 ring-primary-500/30"
+        iconSize={20}
+        widthClassName="max-w-sm"
+        footer={
+          <>
+            <button type="button" onClick={() => setPendingNavigateTeam(null)} className={cancelBtnClass}>
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
+                setPendingNavigateTeam(null)
+              }}
+              className={`${primaryBtnClass} inline-flex items-center gap-1.5`}
+            >
+              ไปที่ Admin
+              <ArrowRight size={15} />
+            </button>
+          </>
         }
-        confirmLabel="ไปที่ Admin"
-        tone="primary"
-        onCancel={() => setPendingNavigateTeam(null)}
-        onConfirm={() => {
-          if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
-          setPendingNavigateTeam(null)
-        }}
-      />
+      >
+        {pendingNavigateTeam && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-50 px-3 py-1.5 text-xs font-medium text-ink-600">
+                <Users size={14} />
+                Team
+              </span>
+              <ArrowRight size={16} className="text-ink-300" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-100 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700">
+                <ShieldCheck size={14} />
+                Admin
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl border border-border-100 bg-surface-50 px-3.5 py-3">
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white ${getTeamBadgeStyle(pendingNavigateTeam.id).solid}`}
+              >
+                {pendingNavigateTeam.name.trim().slice(0, 1).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink-800">{pendingNavigateTeam.name}</p>
+                <p className="text-xs text-ink-400">จะเปิดหน้าจัดการทีมนี้ใน Admin</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
   </AsyncState>
   )
 }
