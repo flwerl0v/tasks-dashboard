@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, Clock, ListChecks, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
-import { MemberDetailModal } from '../components/members/MemberDetailModal'
-import { StatusBadge, PriorityFlag, DueDateChip, WorkloadBadge } from '../components/ui/Badge'
+import { MemberDetailPanel } from '../components/members/MemberDetailPanel'
+import { StatusBadge, PriorityFlag, DueDateChip } from '../components/ui/Badge'
 import { OwnerCell } from '../components/ui/Avatar'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
@@ -20,7 +20,7 @@ import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote
 import { SortHeader, TableToolbar, SelectionBar, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
-import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
+import { STATUS_COLORS, STATUS_ROW_BG, LEVEL_COLORS } from '../lib/colors'
 import { isOverdue } from '../lib/stats'
 import { computeMemberWorkloads } from '../lib/workload'
 import { describeSupabaseError } from '../lib/errors'
@@ -92,7 +92,7 @@ export default function TeamDetail() {
   const [deletingTeam, setDeletingTeam] = useState(false)
 
   const [memberSearch, setMemberSearch] = useState('')
-  const [detailMemberId, setDetailMemberId] = useState<string | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [memberModalOpen, setMemberModalOpen] = useState(false)
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   const [memberName, setMemberName] = useState('')
@@ -103,8 +103,6 @@ export default function TeamDetail() {
   const [rowError, setRowError] = useState<string | null>(null)
   const [memberDeleteTarget, setMemberDeleteTarget] = useState<Member | null>(null)
   const [deletingMember, setDeletingMember] = useState(false)
-  const [memberBulkDeleteOpen, setMemberBulkDeleteOpen] = useState(false)
-  const [deletingMembersBulk, setDeletingMembersBulk] = useState(false)
 
   const [taskSearch, setTaskSearch] = useState('')
   const [taskRowError, setTaskRowError] = useState<string | null>(null)
@@ -184,13 +182,7 @@ export default function TeamDetail() {
     return teamMembers.filter((m) => m.name.toLowerCase().includes(q) || (m.email ?? '').toLowerCase().includes(q))
   }, [teamMembers, memberSearch])
 
-  const getMemberSortValue = (member: Member, key: string) => {
-    if (key === 'email') return (member.email ?? '').toLowerCase()
-    if (key === 'tasks') return taskCountByMember.get(member.id) ?? 0
-    return member.name.toLowerCase()
-  }
-
-  const memberTable = useTableState(filteredMembers, getMemberSortValue)
+  const selectedMember = filteredMembers.find((m) => m.id === selectedMemberId) ?? filteredMembers[0]
 
   const openEdit = () => {
     if (!team) return
@@ -278,21 +270,6 @@ export default function TeamDetail() {
       setRowError(describeSupabaseError(err, 'ลบสมาชิกไม่สำเร็จ'))
     } finally {
       setDeletingMember(false)
-    }
-  }
-
-  const confirmBulkRemoveMembers = async () => {
-    const ids = [...memberTable.selected]
-    if (ids.length === 0) return
-    setDeletingMembersBulk(true)
-    try {
-      for (const id of ids) await deleteMember(id)
-      memberTable.clearSelection()
-      setMemberBulkDeleteOpen(false)
-    } catch (err) {
-      setRowError(describeSupabaseError(err, 'ลบสมาชิกไม่สำเร็จ'))
-    } finally {
-      setDeletingMembersBulk(false)
     }
   }
 
@@ -615,124 +592,53 @@ export default function TeamDetail() {
           {tab === 'members' && (
             <Card>
               <TableToolbar search={memberSearch} onSearchChange={setMemberSearch} createLabel="เพิ่มสมาชิก" onCreate={openAddMember} />
-              <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
-                <label className="inline-flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="accent-primary-600"
-                    checked={memberTable.paged.length > 0 && memberTable.paged.every((m) => memberTable.selected.has(m.id))}
-                    onChange={() => memberTable.toggleSelectAll(memberTable.paged.map((m) => m.id))}
-                  />
-                  เลือกทั้งหมดในหน้านี้
-                </label>
-                <div className="flex items-center gap-2">
-                  <span>เรียงตาม</span>
-                  <DropdownSelect
-                    value={memberTable.sortKey ?? 'name'}
-                    label="ชื่อ"
-                    options={[
-                      { value: 'name', label: 'ชื่อ' },
-                      { value: 'email', label: 'อีเมล' },
-                      { value: 'tasks', label: 'งานที่ถือ' },
-                    ]}
-                    onChange={(key) => {
-                      if (key !== (memberTable.sortKey ?? 'name') || memberTable.sortKey === null) memberTable.toggleSort(key)
-                    }}
-                    buttonClassName="px-3 py-1.5 text-xs"
-                  />
-                </div>
-              </div>
-
-              {memberTable.paged.length === 0 ? (
+              {filteredMembers.length === 0 ? (
                 <EmptyState py="lg">{memberSearch ? 'ไม่พบสมาชิกที่ตรงกับการค้นหา' : 'ทีมนี้ยังไม่มีสมาชิก'}</EmptyState>
               ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {memberTable.paged.map((member) => {
-                    const workload = workloadByMember.get(member.id)
-                    const taskCount = taskCountByMember.get(member.id) ?? 0
-                    const overdueCount = workload?.overdueCount ?? 0
-                    const style = getTeamBadgeStyle(member.id)
-                    const isSelected = memberTable.selected.has(member.id)
-                    return (
-                      <div
-                        key={member.id}
-                        className={`rounded-2xl border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md ${
-                          isSelected ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-border'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(200px,260px)_1fr]">
+                  <div className="space-y-1.5">
+                    {filteredMembers.map((member) => {
+                      const w = workloadByMember.get(member.id)
+                      const on = selectedMember?.id === member.id
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => setSelectedMemberId(member.id)}
+                          className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors ${
+                            on ? 'border-primary-500 bg-primary-50' : 'border-transparent hover:bg-surface-100'
+                          }`}
+                        >
                           <span
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white shadow-md ring-2 ring-white ${style.solid}`}
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${getTeamBadgeStyle(member.id).solid}`}
                           >
                             {member.name.trim().slice(0, 1).toUpperCase()}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <button
-                              type="button"
-                              onClick={() => setDetailMemberId(member.id)}
-                              className="block max-w-full truncate text-left font-semibold text-ink-900 hover:text-primary-600 hover:underline"
-                            >
-                              {member.name}
-                            </button>
-                            <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-400">
-                              <Mail size={12} className="shrink-0" />
-                              {member.email ?? 'ยังไม่ระบุอีเมล'}
-                            </p>
-                          </div>
-                          <input
-                            type="checkbox"
-                            className="mt-1 accent-primary-600"
-                            checked={isSelected}
-                            onChange={() => memberTable.toggleSelect(member.id)}
-                            aria-label={`เลือก ${member.name}`}
-                          />
-                        </div>
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-800">{member.name}</span>
+                          {w && w.overdueCount > 0 && (
+                            <span className="rounded-full bg-danger-50 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-danger-600">
+                              {w.overdueCount}
+                            </span>
+                          )}
+                          {w && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: LEVEL_COLORS[w.level] }} />}
+                        </button>
+                      )
+                    })}
+                  </div>
 
-                        <div className="mt-3 flex items-center gap-2">
-                          {workload && <WorkloadBadge level={workload.level} />}
-                          {workload && <span className="text-xs text-ink-400">Load {workload.loadScore}%</span>}
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-lg bg-primary-50 px-2 py-2 text-center">
-                            <p className="text-lg font-bold tabular-nums text-primary-600">{taskCount}</p>
-                            <p className="text-[11px] text-primary-600/80">งานที่ถือ</p>
-                          </div>
-                          <div className={`rounded-lg px-2 py-2 text-center ${overdueCount > 0 ? 'bg-danger-50' : 'bg-surface-100'}`}>
-                            <p className={`text-lg font-bold tabular-nums ${overdueCount > 0 ? 'text-danger-600' : 'text-ink-400'}`}>{overdueCount}</p>
-                            <p className={`text-[11px] ${overdueCount > 0 ? 'text-danger-600/80' : 'text-ink-400'}`}>เกินกำหนด</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-end gap-1 border-t border-border-50 pt-2.5">
-                          <button
-                            type="button"
-                            onClick={() => openEditMember(member)}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink-500 transition-colors hover:bg-surface-100 hover:text-primary-600"
-                          >
-                            <Pencil size={13} />
-                            แก้ไข
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMemberDeleteTarget(member)}
-                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
-                          >
-                            <Trash2 size={13} />
-                            ลบ
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {selectedMember && (
+                    <MemberDetailPanel
+                      member={selectedMember}
+                      workload={workloadByMember.get(selectedMember.id)}
+                      tasks={tasks.filter((t) => t.owner_id === selectedMember.id)}
+                      onEdit={() => openEditMember(selectedMember)}
+                      onDelete={() => setMemberDeleteTarget(selectedMember)}
+                    />
+                  )}
                 </div>
               )}
-
-              <TableFooter page={memberTable.page} pageSize={memberTable.pageSize} total={memberTable.total} onPageSizeChange={memberTable.setPageSize} />
-              <Pagination page={memberTable.page} pageCount={memberTable.pageCount} onPageChange={memberTable.setPage} />
             </Card>
           )}
 
@@ -939,8 +845,6 @@ export default function TeamDetail() {
             </div>
           </Modal>
 
-          <MemberDetailModal memberId={detailMemberId} onClose={() => setDetailMemberId(null)} />
-
           <ConfirmDialog
             open={deleteTeamConfirmOpen}
             title={`ลบทีม "${team.name}"?`}
@@ -967,20 +871,6 @@ export default function TeamDetail() {
             loading={deletingMember}
             onConfirm={() => void confirmRemoveMember()}
             onCancel={() => setMemberDeleteTarget(null)}
-          />
-
-          <ConfirmDialog
-            open={memberBulkDeleteOpen}
-            title={`ลบสมาชิกที่เลือก ${memberTable.selected.size} คน ออกจากทีม?`}
-            description={
-              [...memberTable.selected].reduce((sum, id) => sum + (taskCountByMember.get(id) ?? 0), 0) > 0
-                ? `งาน ${[...memberTable.selected].reduce((sum, id) => sum + (taskCountByMember.get(id) ?? 0), 0)} งานที่มอบหมายให้จะกลายเป็น "ไม่มีผู้รับผิดชอบ"`
-                : undefined
-            }
-            confirmLabel="ลบสมาชิก"
-            loading={deletingMembersBulk}
-            onConfirm={() => void confirmBulkRemoveMembers()}
-            onCancel={() => setMemberBulkDeleteOpen(false)}
           />
 
           <ConfirmDialog
