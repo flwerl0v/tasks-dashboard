@@ -197,7 +197,7 @@ function TeamsPanel() {
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม..." wrapperClassName="w-full sm:w-64" />
+            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-full sm:w-64" />
             <DropdownSelect
               value={teamFilter}
               className="shrink-0"
