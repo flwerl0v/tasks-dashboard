@@ -173,8 +173,17 @@ export default function TeamDetail() {
   const taskTable = useTableState(filteredTasks, getTaskSortValue)
   const [searchParams] = useSearchParams()
 
+  const openCreateTask = () => {
+    setEditingTaskId(null)
+    setTaskForm(EMPTY_TASK_FORM)
+    setTaskFormError(null)
+    setTaskModalOpen(true)
+  }
+
   useEffect(() => {
+    // Opens the create-task modal once on mount when linked here with ?newTask=1 (e.g. from Dashboard).
     if (searchParams.get('newTask') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       openCreateTask()
     }
   }, [searchParams])
@@ -295,13 +304,6 @@ export default function TeamDetail() {
     } finally {
       setDeletingMembersBulk(false)
     }
-  }
-
-  const openCreateTask = () => {
-    setEditingTaskId(null)
-    setTaskForm(EMPTY_TASK_FORM)
-    setTaskFormError(null)
-    setTaskModalOpen(true)
   }
 
   /** สถานะ ⇄ ความคืบหน้า ต้องสอดคล้องกันเสมอ: done กับ 100% คู่กัน, todo กับ 0% คู่กัน */
