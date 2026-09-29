@@ -7,7 +7,10 @@ interface ModalProps {
   title: string
   description?: string
   icon?: ComponentType<{ size?: number }>
-  children: ReactNode
+  /** Tailwind bg-/text-/ring- color classes for the circular icon badge — defaults to neutral primary; pass a
+   * danger-toned pair for destructive confirmations so the icon matches the action's severity. */
+  iconClassName?: string
+  children?: ReactNode
   footer?: ReactNode
   widthClassName?: string
 }
@@ -18,6 +21,7 @@ export function Modal({
   title,
   description,
   icon: Icon,
+  iconClassName = 'bg-white text-primary-600 ring-primary-500/30',
   children,
   footer,
   widthClassName = 'max-w-lg',
@@ -49,8 +53,8 @@ export function Modal({
         <div className="flex items-start justify-between gap-4 border-b border-border-100 px-6 py-5">
           <div className="flex items-start gap-3">
             {Icon && (
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-                <Icon size={19} />
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2 ${iconClassName}`}>
+                <Icon size={20} />
               </span>
             )}
             <div>
@@ -67,7 +71,9 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        <div className="max-h-[65vh] overflow-y-auto px-6 py-5">{children}</div>
+        {children != null && children !== false && (
+          <div className="max-h-[65vh] overflow-y-auto overflow-x-hidden px-6 py-5">{children}</div>
+        )}
         {footer && (
           <div className="flex justify-end gap-2 border-t border-border-100 bg-surface-50/70 px-6 py-4">{footer}</div>
         )}

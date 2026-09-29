@@ -1,6 +1,7 @@
-import { AlertCircle, Calendar } from 'lucide-react'
+import { AlertCircle, Calendar, UserX } from 'lucide-react'
 import type { Member, Task, TaskStatus, Team } from '../../types'
 import { PriorityBadge } from '../ui/Badge'
+import { statusDropdownOption } from '../../lib/dropdownColors'
 import { ProgressBar } from '../ui/ProgressBar'
 import { DropdownSelect } from '../ui/DropdownSelect'
 import { getTeamBadgeStyle } from '../../lib/teamColor'
@@ -25,7 +26,7 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
     : null
 
   return (
-  <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+  <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md">
     <div className="mb-3 flex items-start justify-between gap-3">
       <div className="flex flex-col gap-2">
         <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${badge.bg} ${badge.text}`}>
@@ -41,6 +42,13 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
       <p className="mb-3 flex items-center gap-2 rounded-2xl bg-danger-50 px-3 py-2 text-xs font-medium text-danger-700">
         <AlertCircle size={14} />
         {blocked ? `ติดปัญหามาแล้ว ${daysSince(task.updated_at)} วัน` : `เกินกำหนด ${daysSince(task.due_date!)} วัน`}
+      </p>
+    )}
+
+    {!owner && (
+      <p className="mb-3 flex items-center gap-2 rounded-2xl bg-warning-50 px-3 py-2 text-xs font-bold text-warning-700">
+        <UserX size={14} />
+        ยังไม่มีผู้รับผิดชอบ
       </p>
     )}
 
@@ -69,12 +77,14 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
         {owner ? (
           <Avatar id={owner.id} name={owner.name} size={24} />
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-400">
-            -
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-600">
+            <UserX size={15} />
           </div>
         )}
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-slate-800">{owner?.name ?? 'ยังไม่มอบหมาย'}</p>
+          <p className={`truncate text-sm font-medium ${owner ? 'text-slate-800' : 'text-warning-700'}`}>
+            {owner?.name ?? 'ยังไม่มอบหมาย'}
+          </p>
           <p className="text-xs text-slate-400">Owner</p>
         </div>
       </div>
@@ -82,7 +92,7 @@ export function TaskCard({ task, team, owner, onStatusChange }: TaskCardProps) {
       <DropdownSelect
         value={task.status}
         label="สถานะ"
-        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s, ...statusDropdownOption(s) }))}
         onChange={(value) => onStatusChange(value)}
         buttonClassName="px-3 py-1 text-xs"
       />

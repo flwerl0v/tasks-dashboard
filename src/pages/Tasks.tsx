@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { AlertOctagon, Clock, LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, ListChecks, Pencil, Trash2 } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { PriorityFlag } from '../components/ui/Badge'
-import { Avatar } from '../components/ui/Avatar'
+import { PriorityFlag, DueDateChip } from '../components/ui/Badge'
+import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
+import { OwnerCell } from '../components/ui/Avatar'
 import { SearchInput } from '../components/ui/SearchInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -14,10 +15,8 @@ import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { SortHeader, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
-import { isOverdue } from '../lib/stats'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
-import { formatDueDate } from '../lib/format'
 import { describeSupabaseError } from '../lib/errors'
 import { TaskBoard } from '../components/tasks/TaskBoard'
 import type { Task, TaskPriority, TaskStatus } from '../types'
@@ -161,17 +160,31 @@ export default function Tasks() {
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-slate-50 p-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="ค้นหางาน หรือผู้รับผิดชอบ..." wrapperClassName="w-64" />
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหางาน หรือผู้รับผิดชอบ"
+            wrapperClassName="w-64"
+            suggestions={[...tasks.map((tsk) => tsk.title), ...members.map((m) => m.name)]}
+          />
           <DropdownSelect
             value={statusFilter}
             label="ทุกสถานะ"
-            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s === 'all' ? 'ทุกสถานะ' : s }))}
+            options={STATUS_OPTIONS.map((s) => ({
+              value: s,
+              label: s === 'all' ? 'ทุกสถานะ' : s,
+              ...(s === 'all' ? {} : statusDropdownOption(s as TaskStatus)),
+            }))}
             onChange={(value) => setStatusFilter(value as TaskStatus | 'all')}
           />
           <DropdownSelect
             value={priorityFilter}
             label="ทุก Priority"
-            options={PRIORITY_OPTIONS.map((p) => ({ value: p, label: p === 'all' ? 'ทุก Priority' : p }))}
+            options={PRIORITY_OPTIONS.map((p) => ({
+              value: p,
+              label: p === 'all' ? 'ทุก Priority' : p,
+              ...(p === 'all' ? {} : priorityDropdownOption(p as TaskPriority)),
+            }))}
             onChange={(value) => setPriorityFilter(value as TaskPriority | 'all')}
           />
           <DropdownSelect
@@ -250,7 +263,6 @@ export default function Tasks() {
                     const owner = memberById.get(tsk.owner_id ?? '')
                     const team = teamById.get(tsk.team_id ?? '')
                     const teamStyle = getTeamBadgeStyle(tsk.team_id)
-                    const overdue = isOverdue(tsk)
                     const rowBg = STATUS_ROW_BG[tsk.status]
                     return (
                       <tr key={tsk.id} className="group">
@@ -270,35 +282,23 @@ export default function Tasks() {
                           </span>
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          {owner ? (
-                            <div className="flex items-center gap-2">
-                              <div className="rounded-full shadow-sm ring-2 ring-white">
-                                <Avatar id={owner.id} name={owner.name} size={24} />
-                              </div>
-                              <span className="truncate text-ink-600">{owner.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-ink-400">-</span>
-                          )}
+                          <OwnerCell owner={owner} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <PriorityFlag priority={tsk.priority} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
-                              overdue ? 'bg-danger-100 text-danger-700' : 'text-ink-500'
-                            }`}
-                          >
-                            {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}
-                            {formatDueDate(tsk.due_date)}
-                          </span>
+                          <DueDateChip task={tsk} />
                         </td>
                         <td className={`py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <DropdownSelect
                             value={tsk.status}
                             label="สถานะ"
-                            options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+                            options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                              value: s,
+                              label: s,
+                              ...statusDropdownOption(s),
+                            }))}
                             onChange={(value) => void setTaskStatus(tsk.id, value)}
                             buttonClassName="px-3 py-1.5 text-sm"
                           />
@@ -420,7 +420,11 @@ export default function Tasks() {
               value={taskForm.status}
               label="status"
               fullWidth
-              options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({ value: s, label: s }))}
+              options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                value: s,
+                label: s,
+                ...statusDropdownOption(s),
+              }))}
               onChange={(value) => setTaskForm((f) => ({ ...f, status: value }))}
             />
           </div>
@@ -430,7 +434,11 @@ export default function Tasks() {
               value={taskForm.priority}
               label="priority"
               fullWidth
-              options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({ value: p, label: p }))}
+              options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({
+                value: p,
+                label: p,
+                ...priorityDropdownOption(p),
+              }))}
               onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
             />
           </div>
@@ -463,6 +471,7 @@ export default function Tasks() {
               onChange={(e) => setTaskForm((f) => ({ ...f, effort_days: e.target.value }))}
               className={inputClass}
             />
+            <p className="mt-1 text-[11px] text-ink-400">ประมาณการวัน-คนที่ต้องใช้ทำงานนี้ให้เสร็จ มีผลต่อ Load Score ในหน้า Workload (AI)</p>
           </div>
         </div>
       </Modal>

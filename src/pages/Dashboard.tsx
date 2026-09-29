@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertOctagon, CheckCircle2, Clock, FileSpreadsheet, ListTodo, ShieldCheck, TimerReset, Info } from 'lucide-react'
+import { AlertOctagon, CheckCircle2, Clock, FileSpreadsheet, ListTodo, ShieldCheck, TimerReset, LayoutDashboard } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { getTeamBadgeStyle } from '../lib/teamColor'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
-import { StatusBadge, PriorityFlag, WorkloadBadge } from '../components/ui/Badge'
-import { Avatar } from '../components/ui/Avatar'
+import { StatusBadge, PriorityFlag, WorkloadBadge, DueDateChip } from '../components/ui/Badge'
+import { OwnerCell } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { AiSummaryCard } from '../components/dashboard/AiSummaryCard'
@@ -15,14 +15,13 @@ import { StatusDonutChart } from '../components/charts/StatusDonutChart'
 import { TeamStatusBarChart } from '../components/charts/TeamStatusBarChart'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
-import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
-import { Modal } from '../components/ui/Modal'
+import { primaryBtnClass } from '../components/ui/formStyles'
+import { AdminNavigateDialog } from '../components/ui/AdminNavigateDialog'
 import { computeMemberWorkloads, computeWeeklyClosedTrend } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue, isDueSoon } from '../lib/stats'
 import { exportSummaryXlsx } from '../lib/exporters'
 import { captureCharts } from '../lib/chartCapture'
-import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
-import { formatDueDate } from '../lib/format'
+import { STATUS_COLORS, STATUS_ROW_BG, LEVEL_ROW_BG } from '../lib/colors'
 import { toErrorMessage } from '../lib/errors'
 
 export default function Dashboard() {
@@ -144,7 +143,6 @@ export default function Dashboard() {
                     const owner = memberById.get(tsk.owner_id ?? '')
                     const team = teamById.get(tsk.team_id ?? '')
                     const teamStyle = getTeamBadgeStyle(tsk.team_id)
-                    const overdue = isOverdue(tsk)
                     const rowBg = STATUS_ROW_BG[tsk.status]
                     return (
                       <tr key={tsk.id} className="group">
@@ -159,16 +157,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          {owner ? (
-                            <div className="flex items-center gap-2">
-                              <div className="rounded-full shadow-sm ring-2 ring-white">
-                                <Avatar id={owner.id} name={owner.name} size={24} />
-                              </div>
-                              <span className="truncate text-ink-600">{owner.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-ink-400">-</span>
-                          )}
+                          <OwnerCell owner={owner} />
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <StatusBadge status={tsk.status} />
@@ -177,14 +166,7 @@ export default function Dashboard() {
                           <PriorityFlag priority={tsk.priority} />
                         </td>
                         <td className={`py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
-                              overdue ? 'bg-danger-100 text-danger-700' : 'text-ink-500'
-                            }`}
-                          >
-                            {overdue ? <AlertOctagon size={13} /> : <Clock size={13} className="text-ink-300" />}
-                            {formatDueDate(tsk.due_date)}
-                          </span>
+                          <DueDateChip task={tsk} />
                         </td>
                         <td className={`rounded-r-lg py-3.5 pr-4 shadow-sm transition group-hover:brightness-95 ${rowBg}`}>
                           <div className="flex items-center gap-2">
@@ -230,7 +212,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2.5">
               {workloads.slice(0, 3).map((w) => (
-                <div key={w.member.id} className="rounded-lg border border-border-100 p-3 text-sm">
+                <div key={w.member.id} className={`rounded-lg border border-border-100 p-3 text-sm ${LEVEL_ROW_BG[w.level]}`}>
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <p className="truncate font-semibold text-ink-800">{w.member.name}</p>
                     <WorkloadBadge level={w.level} />
@@ -283,36 +265,15 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-        <Modal
+        <AdminNavigateDialog
           open={confirmAdmin}
+          from={{ label: 'Dashboard', icon: LayoutDashboard }}
           onClose={() => setConfirmAdmin(false)}
-          title="ไปที่หน้า Admin"
-          description="คุณต้องการไปยังหน้าจัดการข้อมูล (Admin) หรือไม่?"
-          icon={Info}
-          widthClassName="max-w-md"
-          footer={
-            <>
-              <button type="button" onClick={() => setConfirmAdmin(false)} className={cancelBtnClass}>
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmAdmin(false)
-                  navigate('/admin')
-                }}
-                className={primaryBtnClass}
-              >
-                ไปที่ Admin
-              </button>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <p className="text-sm text-ink-600">หน้าจัดการ (Admin) ให้คุณจัดการทีม สมาชิก และดูสรุปข้อมูลทั้งหมดของระบบ</p>
-            <p className="text-sm text-ink-500">คลิก "ไปที่ Admin" เพื่อไปยังหน้าจัดการ</p>
-          </div>
-        </Modal>
+          onConfirm={() => {
+            setConfirmAdmin(false)
+            navigate('/admin')
+          }}
+        />
     </AsyncState>
   )
 }

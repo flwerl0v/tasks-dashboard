@@ -67,7 +67,10 @@ serve(async (req) => {
     }
 
     const result = JSON.parse(resText)
-    const rawContent = result.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    // Gemini can split one answer across multiple parts[] entries — join them all instead of
+    // reading only parts[0], or a response split mid-JSON would silently drop the rest.
+    const resultParts = result.candidates?.[0]?.content?.parts
+    const rawContent = (Array.isArray(resultParts) ? resultParts.map((p: any) => p?.text ?? '').join('') : '') || '{}'
     const parsedData = JSON.parse(rawContent)
 
     return new Response(JSON.stringify(parsedData), {

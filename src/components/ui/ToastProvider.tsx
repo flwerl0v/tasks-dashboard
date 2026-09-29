@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto flex items-start gap-2 rounded-xl border border-danger-200 bg-surface px-4 py-3 text-sm text-danger-700 shadow-lg motion-safe:animate-[modal-pop-in_.18s_cubic-bezier(0.16,1,0.3,1)]"
+            className="pointer-events-auto flex items-start gap-2 rounded-xl border border-danger-100 bg-surface px-4 py-3 text-sm text-danger-700 shadow-lg motion-safe:animate-[modal-pop-in_.18s_cubic-bezier(0.16,1,0.3,1)]"
             role="alert"
           >
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => dismiss(t.id)}
-              className="shrink-0 rounded p-0.5 text-danger-400 transition-colors hover:bg-danger-50 hover:text-danger-600"
+              className="shrink-0 rounded p-0.5 text-ink-400 transition-colors hover:bg-danger-50 hover:text-danger-600"
               aria-label="ปิด"
             >
               <X size={14} />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Clock, ListChecks, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChevronRight, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -8,15 +8,21 @@ import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
 import { MemberDetailModal } from '../components/members/MemberDetailModal'
-import { StatusBadge, PriorityBadge } from '../components/ui/Badge'
+import { StatusBadge, PriorityFlag, DueDateChip, WorkloadBadge } from '../components/ui/Badge'
+import { OwnerCell } from '../components/ui/Avatar'
+import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
 import { Pagination } from '../components/ui/Pagination'
+import { DropdownSelect } from '../components/ui/DropdownSelect'
+import { SuggestInput } from '../components/ui/SuggestInput'
 import { ProgressBar } from '../components/ui/ProgressBar'
 import { EmptyState } from '../components/ui/EmptyState'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
-import { SortHeader, TableToolbar, SelectionBar, TableFooter, TableHeadRow, TableBodyRow } from '../components/ui/tableParts'
+import { SortHeader, TableToolbar, SelectionBar, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
+import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { isOverdue } from '../lib/stats'
+import { computeMemberWorkloads } from '../lib/workload'
 import { describeSupabaseError } from '../lib/errors'
 import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskPriority, TaskStatus } from '../types'
@@ -91,6 +97,7 @@ export default function TeamDetail() {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   const [memberName, setMemberName] = useState('')
   const [memberEmail, setMemberEmail] = useState('')
+  const [memberTeamId, setMemberTeamId] = useState('')
   const [memberFormError, setMemberFormError] = useState<string | null>(null)
   const [memberSubmitting, setMemberSubmitting] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -112,9 +119,14 @@ export default function TeamDetail() {
   const [deletingTasksBulk, setDeletingTasksBulk] = useState(false)
 
   const team = useMemo(() => teams.find((tm) => tm.id === teamId), [teams, teamId])
+  const categories = useMemo(
+    () => [...new Set(teams.map((tm) => tm.category).filter((c): c is string => Boolean(c)))].sort(),
+    [teams],
+  )
   const teamMembers = useMemo(() => members.filter((m) => m.team_id === teamId), [members, teamId])
   const teamTasks = useMemo(() => tasks.filter((t) => t.team_id === teamId), [tasks, teamId])
   const memberById = useMemo(() => new Map(teamMembers.map((m) => [m.id, m])), [teamMembers])
+  const anyMemberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
   const taskCountByMember = useMemo(() => {
     const map = new Map<string, number>()
     tasks.forEach((t) => {
@@ -123,6 +135,11 @@ export default function TeamDetail() {
     })
     return map
   }, [tasks])
+
+  const workloadByMember = useMemo(
+    () => new Map(computeMemberWorkloads(teamMembers, tasks).map((w) => [w.member.id, w])),
+    [teamMembers, tasks],
+  )
 
   const active = teamTasks.filter((t) => t.status !== 'done').length
   const overdue = teamTasks.filter(isOverdue).length
@@ -156,8 +173,17 @@ export default function TeamDetail() {
   const taskTable = useTableState(filteredTasks, getTaskSortValue)
   const [searchParams] = useSearchParams()
 
+  const openCreateTask = () => {
+    setEditingTaskId(null)
+    setTaskForm(EMPTY_TASK_FORM)
+    setTaskFormError(null)
+    setTaskModalOpen(true)
+  }
+
   useEffect(() => {
+    // Opens the create-task modal once on mount when linked here with ?newTask=1 (e.g. from Dashboard).
     if (searchParams.get('newTask') === '1') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       openCreateTask()
     }
   }, [searchParams])
@@ -169,7 +195,7 @@ export default function TeamDetail() {
   }, [teamMembers, memberSearch])
 
   const getMemberSortValue = (member: Member, key: string) => {
-    if (key === 'email') return (member.email ?? '').toLowerCase()
+    if (key === 'load') return workloadByMember.get(member.id)?.loadScore ?? 0
     if (key === 'tasks') return taskCountByMember.get(member.id) ?? 0
     return member.name.toLowerCase()
   }
@@ -187,11 +213,12 @@ export default function TeamDetail() {
   const submitEdit = async () => {
     if (!team) return
     const trimmed = name.trim()
-    if (!trimmed) return
+    const trimmedCategory = category.trim()
+    if (!trimmed || !trimmedCategory) return
     setSubmitting(true)
     setFormError(null)
     try {
-      await updateTeam(team.id, { name: trimmed, category: category.trim() || null })
+      await updateTeam(team.id, { name: trimmed, category: trimmedCategory })
       setEditOpen(false)
     } catch (err) {
       setFormError(describeSupabaseError(err, 'บันทึกทีมไม่สำเร็จ'))
@@ -225,6 +252,7 @@ export default function TeamDetail() {
     setEditingMemberId(member.id)
     setMemberName(member.name)
     setMemberEmail(member.email ?? '')
+    setMemberTeamId(member.team_id ?? '')
     setMemberFormError(null)
     setMemberModalOpen(true)
   }
@@ -239,7 +267,8 @@ export default function TeamDetail() {
     setMemberSubmitting(true)
     setMemberFormError(null)
     try {
-      if (editingMemberId) await updateMember(editingMemberId, { name: trimmed, email: memberEmail.trim() || null })
+      if (editingMemberId)
+        await updateMember(editingMemberId, { name: trimmed, email: memberEmail.trim() || null, team_id: memberTeamId || null })
       else await createMember({ name: trimmed, email: memberEmail.trim() || null, team_id: team.id })
       setMemberModalOpen(false)
     } catch (err) {
@@ -275,13 +304,6 @@ export default function TeamDetail() {
     } finally {
       setDeletingMembersBulk(false)
     }
-  }
-
-  const openCreateTask = () => {
-    setEditingTaskId(null)
-    setTaskForm(EMPTY_TASK_FORM)
-    setTaskFormError(null)
-    setTaskModalOpen(true)
   }
 
   /** สถานะ ⇄ ความคืบหน้า ต้องสอดคล้องกันเสมอ: done กับ 100% คู่กัน, todo กับ 0% คู่กัน */
@@ -473,7 +495,7 @@ export default function TeamDetail() {
             <Card title="เกี่ยวกับทีม">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs text-ink-400">หมวดหมู่</dt>
+                  <dt className="text-xs text-ink-400">แผนก / สายงาน</dt>
                   <dd className="mt-0.5 text-sm font-medium text-ink-700">{team.category ?? '-'}</dd>
                 </div>
                 <div>
@@ -498,82 +520,85 @@ export default function TeamDetail() {
               <SelectionBar count={taskTable.selected.size} onDelete={() => setTaskBulkDeleteOpen(true)} onClear={taskTable.clearSelection} />
               <ErrorNote message={taskRowError} />
 
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
                   <thead>
-                    <TableHeadRow shaded>
-                      <th className="w-10 py-3 pl-4"></th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="สถานะ" sortKey="status" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium text-right">Action</th>
-                    </TableHeadRow>
+                    <tr className="text-[11px] tracking-wide text-ink-400">
+                      <th className="w-10 rounded-l-lg bg-surface-100 py-2.5 pl-4"></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="สถานะ" sortKey="status" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className="rounded-r-lg bg-surface-100 py-2.5 pr-4 text-right font-semibold">Action</th>
+                    </tr>
                   </thead>
                   <tbody>
-                    {taskTable.paged.map((tsk) => (
-                      <TableBodyRow key={tsk.id} hoverable>
-                        <td className="py-3 pl-4">
-                          <input
-                            type="checkbox"
-                            className="accent-primary-600"
-                            checked={taskTable.selected.has(tsk.id)}
-                            onChange={() => taskTable.toggleSelect(tsk.id)}
-                          />
-                        </td>
-                        <td className="py-3 pr-4 font-medium text-ink-700">{tsk.title}</td>
-                        <td className="py-3 pr-4 text-ink-500">{memberById.get(tsk.owner_id ?? '')?.name ?? '-'}</td>
-                        <td className="py-3 pr-4">
-                          <StatusBadge status={tsk.status} />
-                        </td>
-                        <td className="py-3 pr-4">
-                          <PriorityBadge priority={tsk.priority} />
-                        </td>
-                        <td className="py-3 pr-4 text-ink-500">{tsk.due_date ?? '-'}</td>
-                        <td className="py-3 pr-4 text-ink-500">
-                          <div className="flex items-center gap-2">
-                            <ProgressBar value={tsk.progress} size="sm" className="w-14" />
-                            <span className="text-xs tabular-nums">{tsk.progress}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditTask(tsk)}
-                              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
-                              aria-label="แก้ไข"
-                              title="แก้ไข"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setTaskDeleteTarget(tsk)}
-                              className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
-                              aria-label="ลบ"
-                              title="ลบ"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </TableBodyRow>
-                    ))}
+                    {taskTable.paged.map((tsk) => {
+                      const rowBg = STATUS_ROW_BG[tsk.status]
+                      const cell = `py-3.5 shadow-sm transition group-hover:brightness-95 ${rowBg}`
+                      return (
+                        <tr key={tsk.id} className="group">
+                          <td
+                            className={`rounded-l-lg border-l-4 pl-4 ${cell}`}
+                            style={{ borderLeftColor: STATUS_COLORS[tsk.status] }}
+                          >
+                            <input
+                              type="checkbox"
+                              className="accent-primary-600"
+                              checked={taskTable.selected.has(tsk.id)}
+                              onChange={() => taskTable.toggleSelect(tsk.id)}
+                            />
+                          </td>
+                          <td className={`${cell} pr-4 font-semibold text-ink-900`}>{tsk.title}</td>
+                          <td className={`${cell} pr-4`}>
+                            <OwnerCell owner={anyMemberById.get(tsk.owner_id ?? '')} />
+                          </td>
+                          <td className={`${cell} pr-4`}>
+                            <StatusBadge status={tsk.status} />
+                          </td>
+                          <td className={`${cell} pr-4`}>
+                            <PriorityFlag priority={tsk.priority} />
+                          </td>
+                          <td className={`${cell} pr-4`}>
+                            <DueDateChip task={tsk} />
+                          </td>
+                          <td className={`${cell} pr-4 text-ink-500`}>
+                            <div className="flex items-center gap-2">
+                              <ProgressBar
+                                value={tsk.progress}
+                                className="w-16"
+                                tone={tsk.progress >= 100 ? 'success' : tsk.progress >= 50 ? 'primary' : 'warning'}
+                              />
+                              <span className="text-xs tabular-nums">{tsk.progress}%</span>
+                            </div>
+                          </td>
+                          <td className={`rounded-r-lg ${cell} pr-4`}>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditTask(tsk)}
+                                className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface hover:text-primary-600"
+                                aria-label="แก้ไข"
+                                title="แก้ไข"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTaskDeleteTarget(tsk)}
+                                className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-surface hover:text-danger-600"
+                                aria-label="ลบ"
+                                title="ลบ"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {taskTable.paged.length === 0 && (
                       <tr>
                         <td colSpan={8}>
@@ -596,75 +621,114 @@ export default function TeamDetail() {
               <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
-              <div className="overflow-x-auto rounded-xl border border-border">
+              <div className="overflow-x-auto rounded-2xl border border-border">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <TableHeadRow shaded>
+                    <tr className="border-b border-border bg-surface-50 text-xs">
                       <th className="w-10 py-3 pl-4"></th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="ชื่อ" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="อีเมล" sortKey="email" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium">
-                        <SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} />
-                      </th>
-                      <th className="py-3 pr-4 font-medium text-right">Action</th>
-                    </TableHeadRow>
+                      <th className="py-3 pr-4"><SortHeader label="สมาชิก" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-44 py-3 pr-4"><SortHeader label="ภาระงาน" sortKey="load" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-28 py-3 pr-4"><SortHeader label="งานที่ถือ" sortKey="tasks" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
+                      <th className="w-28 py-3 pr-4 font-medium text-ink-500">เกินกำหนด</th>
+                      <th className="w-24 py-3 pr-4 text-right font-medium text-ink-500">Action</th>
+                    </tr>
                   </thead>
                   <tbody>
-                    {memberTable.paged.map((member) => (
-                      <TableBodyRow key={member.id} hoverable>
-                        <td className="py-3 pl-4">
-                          <input
-                            type="checkbox"
-                            className="accent-primary-600"
-                            checked={memberTable.selected.has(member.id)}
-                            onChange={() => memberTable.toggleSelect(member.id)}
-                          />
-                        </td>
-                        <td className="py-3 pr-4 font-medium">
-                          <button
-                            type="button"
-                            onClick={() => setDetailMemberId(member.id)}
-                            className="flex items-center gap-2.5 text-ink-700 hover:text-primary-600"
-                          >
-                            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-ink-600 ${getTeamBadgeStyle(member.id).bg}`}>
-                              {member.name.trim().slice(0, 1).toUpperCase()}
+                    {memberTable.paged.map((member) => {
+                      const taskCount = taskCountByMember.get(member.id) ?? 0
+                      const w = workloadByMember.get(member.id)
+                      const overdueCount = w?.overdueCount ?? 0
+                      return (
+                        <tr
+                          key={member.id}
+                          onClick={() => setDetailMemberId(member.id)}
+                          className="group cursor-pointer border-b border-border-100 transition-colors last:border-0 hover:bg-primary-50/60"
+                        >
+                          <td className="py-3.5 pl-4" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="accent-primary-600"
+                              checked={memberTable.selected.has(member.id)}
+                              onChange={() => memberTable.toggleSelect(member.id)}
+                            />
+                          </td>
+                          <td className="py-3.5 pr-4">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white shadow-sm ring-2 ring-white ${getTeamBadgeStyle(member.id).solid}`}
+                              >
+                                {member.name.trim().slice(0, 1).toUpperCase()}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1 font-semibold text-primary-700 group-hover:underline group-hover:underline-offset-2">
+                                  <span className="truncate">{member.name}</span>
+                                  <ChevronRight size={14} className="shrink-0 text-ink-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-600" />
+                                </p>
+                                <p className="flex items-center gap-1.5 truncate text-xs text-ink-400">
+                                  <Mail size={12} className="shrink-0" />
+                                  {member.email ?? 'ยังไม่ระบุอีเมล'}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 pr-4">
+                            {w ? (
+                              <div className="flex flex-col items-start gap-1">
+                                <WorkloadBadge level={w.level} />
+                                <span className="text-[11px] tabular-nums text-ink-400">Load {w.loadScore}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-ink-300">-</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 pr-4">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
+                                taskCount > 0 ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-ink-400'
+                              }`}
+                            >
+                              <ListChecks size={12} />
+                              {taskCount} งาน
                             </span>
-                            <span className="hover:underline">{member.name}</span>
-                          </button>
-                        </td>
-                        <td className="py-3 pr-4 text-ink-500">{member.email ?? '-'}</td>
-                        <td className="py-3 pr-4 text-ink-500">{taskCountByMember.get(member.id) ?? 0}</td>
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditMember(member)}
-                              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-primary-600"
-                              aria-label="แก้ไข"
-                              title="แก้ไข"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMemberDeleteTarget(member)}
-                              className="rounded-md p-1.5 text-danger-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
-                              aria-label="ลบออกจากทีม"
-                              title="ลบออกจากทีม"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </TableBodyRow>
-                    ))}
+                          </td>
+                          <td className="py-3.5 pr-4">
+                            {overdueCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2.5 py-1 text-xs font-semibold tabular-nums text-danger-600">
+                                <AlertTriangle size={12} />
+                                {overdueCount} งาน
+                              </span>
+                            ) : (
+                              <span className="text-xs text-ink-300">ไม่มี</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 pr-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditMember(member)}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface text-ink-500 transition-colors hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600"
+                                aria-label="แก้ไข"
+                                title="แก้ไข"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberDeleteTarget(member)}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-surface text-danger-500 transition-colors hover:border-danger-500 hover:bg-danger-50 hover:text-danger-600"
+                                aria-label="ลบออกจากทีม"
+                                title="ลบออกจากทีม"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {memberTable.paged.length === 0 && (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <EmptyState py="lg">{memberSearch ? 'ไม่พบสมาชิกที่ตรงกับการค้นหา' : 'ทีมนี้ยังไม่มีสมาชิก'}</EmptyState>
                         </td>
                       </tr>
@@ -682,14 +746,14 @@ export default function TeamDetail() {
             open={editOpen}
             onClose={() => setEditOpen(false)}
             title="แก้ไขทีม"
-            description="แก้ไขชื่อและหมวดหมู่ของทีมนี้"
+            description="แก้ไขชื่อและแผนก/สายงานของทีมนี้"
             icon={Users}
             footer={
               <>
                 <button type="button" onClick={() => setEditOpen(false)} className={cancelBtnClass}>
                   ยกเลิก
                 </button>
-                <button type="button" onClick={() => void submitEdit()} disabled={submitting || !name.trim()} className={primaryBtnClass}>
+                <button type="button" onClick={() => void submitEdit()} disabled={submitting || !name.trim() || !category.trim()} className={primaryBtnClass}>
                   บันทึก
                 </button>
               </>
@@ -702,8 +766,14 @@ export default function TeamDetail() {
                 <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
               </div>
               <div>
-                <label className={fieldLabelClass}>หมวดหมู่ (ไม่บังคับ)</label>
-                <input value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass} />
+                <label className={fieldLabelClass}>แผนก / สายงาน</label>
+                <SuggestInput
+                  value={category}
+                  onChange={setCategory}
+                  suggestions={categories}
+                  placeholder="เช่น Engineering, Marketing, QA"
+                />
+                <p className="mt-1 text-[11px] text-ink-400">ใช้จัดกลุ่มทีมตามสายงาน จะแสดงเป็นแท็กเล็กๆ ใต้ชื่อทีม</p>
               </div>
             </div>
           </Modal>
@@ -746,6 +816,22 @@ export default function TeamDetail() {
                 <label className={fieldLabelClass}>อีเมล (ไม่บังคับ)</label>
                 <input value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} className={inputClass} />
               </div>
+              {editingMemberId && (
+                <div>
+                  <label className={fieldLabelClass}>ทีม</label>
+                  <DropdownSelect
+                    value={memberTeamId}
+                    label="ไม่มีทีม"
+                    fullWidth
+                    options={[
+                      { value: '', label: 'ไม่มีทีม' },
+                      ...[...teams].sort((a, b) => a.name.localeCompare(b.name)).map((tm) => ({ value: tm.id, label: tm.name })),
+                    ]}
+                    onChange={(value) => setMemberTeamId(value)}
+                  />
+                  <p className="mt-1 text-[11px] text-ink-400">ย้ายสมาชิกคนนี้ไปทีมอื่น หรือเอาออกจากทีม (ไม่มีทีม) ได้จากตรงนี้</p>
+                </div>
+              )}
             </div>
           </Modal>
 
@@ -764,7 +850,7 @@ export default function TeamDetail() {
                 <button
                   type="button"
                   onClick={() => void submitTask()}
-                  disabled={taskSubmitting}
+                  disabled={taskSubmitting || !taskForm.title.trim() || !taskForm.owner_id}
                   className={primaryBtnClass}
                 >
                   {editingTaskId ? 'บันทึกการแก้ไข' : 'เพิ่มงาน'}
@@ -785,46 +871,45 @@ export default function TeamDetail() {
               </div>
               <div>
                 <label className={fieldLabelClass}>ผู้รับผิดชอบ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.owner_id}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, owner_id: e.target.value }))}
-                  className={inputClass}
-                >
-                  <option value="">-- เลือกผู้รับผิดชอบ --</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                  label="เลือกผู้รับผิดชอบ"
+                  fullWidth
+                  options={[
+                    { value: '', label: 'เลือกผู้รับผิดชอบ' },
+                    ...teamMembers.map((m) => ({ value: m.id, label: m.name })),
+                  ]}
+                  onChange={(value) => setTaskForm((f) => ({ ...f, owner_id: value }))}
+                />
+                <p className="mt-1 text-[11px] text-ink-400">ทุกงานต้องมีผู้รับผิดชอบก่อนจึงจะบันทึกได้ กันไม่ให้งานตกหล่นโดยไม่มีผู้รับผิดชอบงาน</p>
               </div>
               <div>
                 <label className={fieldLabelClass}>สถานะ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.status}
-                  onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-                  className={inputClass}
-                >
-                  {(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  label="สถานะ"
+                  fullWidth
+                  options={(['todo', 'doing', 'done', 'blocked'] as TaskStatus[]).map((s) => ({
+                    value: s,
+                    label: s,
+                    ...statusDropdownOption(s),
+                  }))}
+                  onChange={(value) => handleStatusChange(value)}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>ระดับความสำคัญ</label>
-                <select
+                <DropdownSelect
                   value={taskForm.priority}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
-                  className={inputClass}
-                >
-                  {(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  label="ระดับความสำคัญ"
+                  fullWidth
+                  options={(['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((p) => ({
+                    value: p,
+                    label: p,
+                    ...priorityDropdownOption(p),
+                  }))}
+                  onChange={(value) => setTaskForm((f) => ({ ...f, priority: value }))}
+                />
               </div>
               <div>
                 <label className={fieldLabelClass}>กำหนดส่ง</label>
@@ -855,6 +940,7 @@ export default function TeamDetail() {
                   onChange={(e) => setTaskForm((f) => ({ ...f, effort_days: e.target.value }))}
                   className={inputClass}
                 />
+                <p className="mt-1 text-[11px] text-ink-400">ประมาณการวัน-คนที่ต้องใช้ทำงานนี้ให้เสร็จ มีผลต่อ Load Score ในหน้า Workload (AI)</p>
               </div>
             </div>
           </Modal>

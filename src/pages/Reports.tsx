@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertOctagon, ListTodo, TrendingUp, Users } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -8,15 +8,37 @@ import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
 import { Avatar } from '../components/ui/Avatar'
 import { EmptyState } from '../components/ui/EmptyState'
+import { WorkloadBadge } from '../components/ui/Badge'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
-import { computeMemberWorkloads, computeTeamWorkloadSummary, computeWeeklyClosedTrend } from '../lib/workload'
+import { computeMemberWorkloads, computeTeamWorkloadSummary, computeWeeklyClosedTrend, workloadLevelForScore } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue } from '../lib/stats'
-import { PRIORITY_COLORS, STATUS_COLORS, chartColors } from '../lib/colors'
+import { PRIORITY_COLORS, STATUS_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
 import type { TaskPriority, TaskStatus } from '../types'
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
 const STATUS_ORDER: TaskStatus[] = ['todo', 'doing', 'done', 'blocked']
 const STATUS_LABELS: Record<TaskStatus, string> = { todo: 'To Do', doing: 'Doing', done: 'Done', blocked: 'Blocked' }
+
+type Period = 'week' | 'month' | 'all'
+
+const PERIOD_OPTIONS: Array<{ value: Period; label: string }> = [
+  { value: 'week', label: 'สัปดาห์นี้' },
+  { value: 'month', label: 'เดือนนี้' },
+  { value: 'all', label: 'ทั้งหมด' },
+]
+
+/** Start of the selected period (local time), or null for 'all' (no lower bound). */
+function periodStart(period: Period): Date | null {
+  if (period === 'all') return null
+  const now = new Date()
+  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
+  // 'week': Monday of the current week
+  const day = now.getDay() // 0 = Sunday
+  const diffToMonday = day === 0 ? 6 : day - 1
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
 
 interface TeamStatusTooltipProps {
   active?: boolean
@@ -82,8 +104,18 @@ function PriorityTooltip({ active, payload }: PriorityTooltipProps) {
 
 export default function Reports() {
   const { teams, members, tasks, loading, error } = useAppData()
+  const [period, setPeriod] = useState<Period>('all')
 
-  const byStatus = useMemo(() => countByStatus(tasks), [tasks])
+  // Only the "what happened" activity metrics (task counts/breakdowns below) respect the period
+  // filter — "งานเกินกำหนด", workload, and the top-overdue list all describe *right now*, not a
+  // slice of history, so filtering them by when a task was created would misleadingly hide a
+  // task that's been overdue for months just because it wasn't created this week.
+  const periodTasks = useMemo(() => {
+    const start = periodStart(period)
+    return start ? tasks.filter((tsk) => new Date(tsk.created_at) >= start) : tasks
+  }, [tasks, period])
+
+  const byStatus = useMemo(() => countByStatus(periodTasks), [periodTasks])
   const donutData = STATUS_ORDER.map((status) => ({ name: STATUS_LABELS[status], value: byStatus[status], status }))
 
   const workloads = useMemo(() => computeMemberWorkloads(members, tasks), [members, tasks])
@@ -107,30 +139,50 @@ export default function Reports() {
       .slice(0, 5)
   }, [tasks, members])
 
-  const byTeamStatus = useMemo(() => countByTeamAndStatus(tasks, teams), [tasks, teams])
+  const byTeamStatus = useMemo(() => countByTeamAndStatus(periodTasks, teams), [periodTasks, teams])
 
   const priorityData = useMemo(
     () =>
       (['low', 'medium', 'high', 'critical'] as TaskPriority[]).map((priority) => ({
         priority,
         label: PRIORITY_LABELS[priority],
-        count: tasks.filter((tsk) => tsk.priority === priority).length,
+        count: periodTasks.filter((tsk) => tsk.priority === priority).length,
       })),
-    [tasks],
+    [periodTasks],
   )
 
   const weeklyTrend = useMemo(() => computeWeeklyClosedTrend(tasks), [tasks])
   const overdueCount = useMemo(() => tasks.filter(isOverdue).length, [tasks])
   const avgProgress = useMemo(
-    () => (tasks.length > 0 ? Math.round(tasks.reduce((sum, tsk) => sum + tsk.progress, 0) / tasks.length) : 0),
-    [tasks],
+    () => (periodTasks.length > 0 ? Math.round(periodTasks.reduce((sum, tsk) => sum + tsk.progress, 0) / periodTasks.length) : 0),
+    [periodTasks],
   )
 
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-ink-500">
+            สถิติงาน/ภาพรวมกิจกรรมตามช่วงเวลาที่เลือก — งานเกินกำหนดและภาระงานทีมแสดงสถานะปัจจุบันเสมอ ไม่ผูกกับช่วงเวลานี้
+          </p>
+          <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPeriod(opt.value)}
+                className={`rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
+                  period === opt.value ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard label="งานทั้งหมด" value={tasks.length} icon={ListTodo} tone="neutral" />
+          <StatCard label="งานทั้งหมด" value={periodTasks.length} icon={ListTodo} tone="neutral" />
           <StatCard label="ความคืบหน้าเฉลี่ย" value={`${avgProgress}%`} icon={TrendingUp} tone="success" />
           <StatCard label="งานเกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" />
           <StatCard label="จำนวนทีม" value={teams.length} icon={Users} tone="default" />
@@ -188,7 +240,7 @@ export default function Reports() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-ink-900">{tasks.length}</span>
+                  <span className="text-3xl font-bold text-ink-900">{periodTasks.length}</span>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-400">งานทั้งหมด</span>
                 </div>
               </div>
@@ -221,12 +273,21 @@ export default function Reports() {
               <span className="ml-auto font-semibold text-ink-700">เฉลี่ยรวม {avgLoadScore}%</span>
             </div>
             <div className="space-y-2">
-              {teamWorkloadSummary.map((s) => (
-                <div key={s.team.id} className="flex items-center justify-between rounded-lg border border-border-100 px-3 py-2 text-sm">
-                  <span className="font-medium text-ink-700">{s.team.name}</span>
-                  <span className="text-xs text-ink-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</span>
-                </div>
-              ))}
+              {teamWorkloadSummary.map((s) => {
+                const level = s.memberCount > 0 ? workloadLevelForScore(s.avgLoadScore) : null
+                return (
+                  <div
+                    key={s.team.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border border-border-100 px-3 py-2 text-sm ${level ? LEVEL_ROW_BG[level] : ''}`}
+                  >
+                    <span className="font-medium text-ink-700">{s.team.name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-ink-400">{s.memberCount} คน · เฉลี่ย {s.avgLoadScore}%</span>
+                      {level && <WorkloadBadge level={level} />}
+                    </div>
+                  </div>
+                )
+              })}
               {teamWorkloadSummary.length === 0 && <p className="text-sm text-ink-400">ยังไม่มีทีมในระบบ</p>}
             </div>
           </Card>
@@ -237,12 +298,18 @@ export default function Reports() {
             ) : (
               <div className="space-y-2.5">
                 {topOverdueOwners.map(({ member, count }) => (
-                  <div key={member.id} className="flex items-center justify-between gap-2 rounded-lg border border-border-100 px-3 py-2 text-sm">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Avatar id={member.id} name={member.name} size={24} />
-                      <span className="truncate font-medium text-ink-700">{member.name}</span>
+                  <div key={member.id} className="relative overflow-hidden rounded-lg border border-border-100 px-3 py-2 text-sm">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-danger-50"
+                      style={{ width: `${Math.round((count / topOverdueOwners[0].count) * 100)}%` }}
+                    />
+                    <div className="relative flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Avatar id={member.id} name={member.name} size={24} />
+                        <span className="truncate font-medium text-ink-700">{member.name}</span>
+                      </div>
+                      <span className="shrink-0 text-xs font-semibold text-danger-600">{count} งาน</span>
                     </div>
-                    <span className="shrink-0 text-xs font-semibold text-danger-600">{count} งาน</span>
                   </div>
                 ))}
               </div>

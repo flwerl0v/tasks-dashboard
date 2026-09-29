@@ -1,5 +1,12 @@
-import type { Member, MemberWorkload, Task, Team, TeamWorkloadSummary, WeeklyTrendPoint } from '../types'
+import type { Member, MemberWorkload, Task, Team, TeamWorkloadSummary, WeeklyTrendPoint, WorkloadLevel } from '../types'
 import { WORKLOAD_CONFIG } from './workloadConfig'
+
+/** Same overload/underload thresholds used everywhere a Load Score gets classified. */
+export function workloadLevelForScore(loadScore: number): WorkloadLevel {
+  if (loadScore > WORKLOAD_CONFIG.overloadAbove) return 'overload'
+  if (loadScore < WORKLOAD_CONFIG.underloadBelow) return 'underload'
+  return 'balanced'
+}
 
 /** Remaining Effort = Effort (days) × (1 - Progress). Zero for done tasks. */
 export function remainingEffortDays(task: Task): number {
@@ -43,10 +50,7 @@ export function computeMemberWorkloads(members: Member[], tasks: Task[]): Member
 
       const weightedEffortSum = openTasks.reduce((sum, tsk) => sum + weightedRemainingEffort(tsk), 0)
       const loadScore = Math.round((weightedEffortSum / WORKLOAD_CONFIG.weeklyCapacityDays) * 100)
-
-      let level: MemberWorkload['level'] = 'balanced'
-      if (loadScore > WORKLOAD_CONFIG.overloadAbove) level = 'overload'
-      else if (loadScore < WORKLOAD_CONFIG.underloadBelow) level = 'underload'
+      const level = workloadLevelForScore(loadScore)
 
       const riskReasons = openTasks.map(dueDateRiskReason).filter((r): r is string => Boolean(r))
       const highPriorityCount = openTasks.filter((tsk) => tsk.priority === 'high' || tsk.priority === 'critical').length

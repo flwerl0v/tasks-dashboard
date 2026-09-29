@@ -1,25 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Search } from 'lucide-react'
-
-const SIZE_CLASS: Record<'sm' | 'md', { icon: number; iconLeft: string; input: string }> = {
-  md: { icon: 15, iconLeft: 'left-3', input: 'py-2 pl-9 pr-3 text-sm' },
-  sm: { icon: 13, iconLeft: 'left-2.5', input: 'py-1.5 pl-7 pr-2 text-xs' },
-}
-
-interface SearchInputProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  wrapperClassName?: string
-  size?: 'sm' | 'md'
-  /**
-   * Known values (task titles, names, ...) to offer as a pick-to-fill dropdown while typing.
-   * Purely a shortcut — the input already live-filters on every keystroke either way, this
-   * just saves typing the rest of a known name once there's a match.
-   */
-  suggestions?: string[]
-}
+import { inputClass } from './formStyles'
 
 interface MenuPosition {
   left: number
@@ -27,32 +8,34 @@ interface MenuPosition {
   width: number
 }
 
-export function SearchInput({
-  value,
-  onChange,
-  placeholder = 'ค้นหา...',
-  wrapperClassName = '',
-  size = 'md',
-  suggestions,
-}: SearchInputProps) {
-  const s = SIZE_CLASS[size]
+interface SuggestInputProps {
+  value: string
+  onChange: (value: string) => void
+  suggestions: string[]
+  placeholder?: string
+  className?: string
+  autoFocus?: boolean
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void
+}
+
+/**
+ * Free-text input with a custom-styled, portal-based suggestion dropdown — the styled
+ * equivalent of a native <input list="..."> + <datalist>, which can't be themed and renders
+ * with browser-default chrome that clashes with the rest of the app's dropdowns.
+ */
+export function SuggestInput({ value, onChange, suggestions, placeholder, className = '', autoFocus, onKeyDown }: SuggestInputProps) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = useState<MenuPosition | null>(null)
 
   const query = value.trim().toLowerCase()
-  const matches = !suggestions || !query
-    ? []
-    : [...new Set(suggestions)]
+  const uniqueSuggestions = [...new Set(suggestions)]
+  const matches = !query
+    ? uniqueSuggestions.slice(0, 8)
+    : uniqueSuggestions
         .map((item) => ({ item, at: item.toLowerCase().indexOf(query) }))
-        // at === -1 means "no match" (filtered out below); at === query.length means it's
-        // already the exact value typed (nothing left to suggest) — both excluded.
         .filter(({ item, at }) => at !== -1 && item.toLowerCase() !== query)
-        // Rank by *where* the match starts, not by whatever order the source list happened to
-        // list them in — "redesign..." (query matches at index 0) should outrank "ทดสอบ
-        // Realtime..." (query matches at index 6) for the same query, regardless of which task
-        // was created first.
         .sort((a, b) => a.at - b.at || a.item.length - b.item.length)
         .map(({ item }) => item)
         .slice(0, 8)
@@ -88,8 +71,7 @@ export function SearchInput({
   }, [showMenu])
 
   return (
-    <div ref={wrapperRef} className={`relative ${wrapperClassName}`}>
-      <Search size={s.icon} className={`pointer-events-none absolute ${s.iconLeft} top-1/2 -translate-y-1/2 text-ink-400`} />
+    <div ref={wrapperRef} className={`relative ${className}`}>
       <input
         value={value}
         onChange={(e) => {
@@ -97,9 +79,13 @@ export function SearchInput({
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setOpen(false)
+          onKeyDown?.(e)
+        }}
         placeholder={placeholder}
-        className={`w-full rounded-2xl border border-border bg-surface px-3 outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 ${s.input}`}
+        className={inputClass}
+        autoFocus={autoFocus}
       />
       {showMenu &&
         createPortal(
@@ -116,10 +102,9 @@ export function SearchInput({
                   onChange(item)
                   setOpen(false)
                 }}
-                className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm text-ink-700 transition-colors hover:bg-surface-50"
+                className="block w-full truncate px-3.5 py-2 text-left text-sm text-ink-700 transition-colors hover:bg-surface-50"
               >
-                <Search size={12} className="shrink-0 text-ink-300" />
-                <span className="truncate">{item}</span>
+                {item}
               </button>
             ))}
           </div>,
