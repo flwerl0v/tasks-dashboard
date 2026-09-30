@@ -91,7 +91,7 @@ export function MemberDetailModal({ memberId, onClose }: { memberId: string | nu
       role="presentation"
     >
       <div
-        className="max-h-[88vh] w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-black/5 motion-safe:animate-[modal-pop-in_.18s_cubic-bezier(0.16,1,0.3,1)]"
+        className="max-h-[88vh] w-full max-w-lg overflow-hidden rounded-md bg-surface shadow-2xl ring-1 ring-black/5 motion-safe:animate-[modal-pop-in_.18s_cubic-bezier(0.16,1,0.3,1)]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -113,7 +113,7 @@ export function MemberDetailModal({ memberId, onClose }: { memberId: string | nu
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-ink-600"
+              className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-100 hover:text-ink-600"
               aria-label="ปิด"
             >
               <X size={18} />

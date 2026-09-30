@@ -23,9 +23,9 @@ export function AppLayout() {
   return (
     <div className="flex h-screen bg-surface-50">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="min-w-0 flex-1 overflow-y-auto">
         <Topbar title={meta.title} subtitle={meta.subtitle} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="p-4 md:p-8">
           <Outlet />
         </main>
       </div>

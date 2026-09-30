@@ -8,6 +8,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Noto Sans Thai Looped"', 'system-ui', 'sans-serif'],
+      },
       colors: {
         ink: palette.ink,
         surface: palette.surface,

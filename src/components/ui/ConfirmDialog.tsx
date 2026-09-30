@@ -15,9 +15,9 @@ interface ConfirmDialogProps {
 }
 
 const dangerBtnClass =
-  'rounded-2xl bg-danger-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-danger-600/20 transition-colors hover:bg-danger-700 disabled:opacity-50 disabled:shadow-none'
+  'rounded-md bg-danger-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-danger-700 disabled:opacity-50'
 const primaryConfirmBtnClass =
-  'rounded-2xl bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition-colors hover:bg-primary-700 disabled:opacity-50 disabled:shadow-none'
+  'rounded-md bg-ink-900 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-ink-700 disabled:opacity-50'
 
 export function ConfirmDialog({
   open,

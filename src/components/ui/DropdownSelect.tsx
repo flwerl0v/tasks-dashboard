@@ -105,7 +105,7 @@ export function DropdownSelect<T extends string>({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[100] overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
+            className="fixed z-[100] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
             style={{
               maxHeight: '60vh',
               left: position?.left ?? 0,

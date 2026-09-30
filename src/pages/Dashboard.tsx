@@ -80,15 +80,17 @@ export default function Dashboard() {
     }
   }
 
+  const shareOfTotal = (n: number) => `${tasks.length ? Math.round((n / tasks.length) * 100) : 0}% ของงานทั้งหมด`
+
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <StatCard label="งานทั้งหมด" value={tasks.length} icon={ListTodo} tone="neutral" />
-          <StatCard label="กำลังดำเนินการ" value={byStatus.doing} icon={Clock} tone="warning" />
-          <StatCard label="เสร็จแล้ว" value={byStatus.done} icon={CheckCircle2} tone="success" />
-          <StatCard label="ใกล้ครบกำหนด" value={dueSoonCount} icon={TimerReset} tone="default" />
-          <StatCard label="เกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" />
+          <StatCard label="งานทั้งหมด" value={tasks.length} icon={ListTodo} tone="neutral" hint="ทุกทีม ทุกสถานะ" />
+          <StatCard label="กำลังดำเนินการ" value={byStatus.doing} icon={Clock} tone="warning" hint={shareOfTotal(byStatus.doing)} />
+          <StatCard label="เสร็จแล้ว" value={byStatus.done} icon={CheckCircle2} tone="success" hint={shareOfTotal(byStatus.done)} />
+          <StatCard label="ใกล้ครบกำหนด" value={dueSoonCount} icon={TimerReset} tone="default" hint={shareOfTotal(dueSoonCount)} />
+          <StatCard label="เกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" hint={shareOfTotal(overdueCount)} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

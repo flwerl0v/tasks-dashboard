@@ -45,7 +45,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
             type="button"
             onClick={() => onPageChange(p)}
             className={`h-7 w-7 rounded-md text-xs font-medium tabular-nums ${
-              p === page ? 'bg-primary-600 text-white' : 'text-ink-500 hover:bg-surface-50'
+              p === page ? 'bg-ink-900 text-white' : 'text-ink-500 hover:bg-surface-50'
             }`}
           >
             {p}

@@ -414,12 +414,12 @@ export default function TeamDetail() {
           <Link
             to="/admin"
             aria-label="กลับไปหน้าทีม"
-            className="inline-flex items-center justify-center rounded-full border border-border bg-white p-2 text-ink-500 transition-colors hover:bg-surface-50 hover:text-ink-700"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-white p-2 text-ink-500 transition-colors hover:bg-surface-50 hover:text-ink-700"
           >
             <ArrowLeft size={16} />
           </Link>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+          <div className="overflow-hidden rounded-md border border-border bg-surface shadow-sm">
             <div className={`h-28 bg-gradient-to-r ${style.from} ${style.to}`} />
             <div className="px-6 pb-6">
               <div className="flex items-end justify-between gap-3">
@@ -451,7 +451,7 @@ export default function TeamDetail() {
                 </div>
 
                 <div className="flex gap-3 items-center">
-                  <div className="flex items-center gap-3 rounded-2xl border border-border-100 bg-surface-50 px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-md border border-border-100 bg-surface-50 px-4 py-3 shadow-sm">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-200 text-ink-600">
                       <Users size={18} />
                     </span>
@@ -461,7 +461,7 @@ export default function TeamDetail() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 rounded-2xl border border-warning-100 bg-warning-50 px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3 rounded-md border border-warning-100 bg-warning-50 px-4 py-3 shadow-sm">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-100 text-warning-600">
                       <Clock size={18} />
                     </span>
@@ -481,7 +481,7 @@ export default function TeamDetail() {
                     type="button"
                     onClick={() => setTab(key)}
                     className={`py-2 px-3 text-sm font-medium transition ${
-                      tab === key ? 'bg-primary-50 text-primary-600 rounded-full' : 'text-ink-500 hover:bg-surface-100 rounded-full'
+                      tab === key ? 'bg-primary-50 text-primary-600 rounded-md' : 'text-ink-500 hover:bg-surface-100 rounded-md'
                     }`}
                   >
                     {label}
@@ -621,7 +621,7 @@ export default function TeamDetail() {
               <SelectionBar count={memberTable.selected.size} onDelete={() => setMemberBulkDeleteOpen(true)} onClear={memberTable.clearSelection} />
               <ErrorNote message={rowError} />
 
-              <div className="overflow-x-auto rounded-2xl border border-border">
+              <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border bg-surface-50 text-xs">

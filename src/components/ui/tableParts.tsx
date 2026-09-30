@@ -46,7 +46,7 @@ export function TableToolbar({
       <button
         type="button"
         onClick={onCreate}
-        className="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100"
+        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100"
       >
         <Plus size={14} />
         {createLabel}
@@ -58,13 +58,13 @@ export function TableToolbar({
 export function SelectionBar({ count, onDelete, onClear }: { count: number; onDelete: () => void; onClear: () => void }) {
   if (count === 0) return null
   return (
-    <div className="mb-3 flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm">
+    <div className="mb-3 flex items-center justify-between rounded-md border border-primary-100 bg-primary-50 px-4 py-3 text-sm">
       <span className="font-medium text-primary-700">เลือกแล้ว {count} รายการ</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onDelete}
-          className="flex items-center gap-1.5 rounded-2xl bg-danger-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-danger-600/20 transition-colors hover:bg-danger-700"
+          className="flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-danger-600/20 transition-colors hover:bg-danger-700"
         >
           <Trash2 size={13} />
           ลบที่เลือก

@@ -159,7 +159,7 @@ export default function Tasks() {
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-slate-50 p-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3">
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -194,12 +194,12 @@ export default function Tasks() {
             onChange={(value) => setTeamFilter(value)}
           />
 
-          <div className="ml-auto flex items-center gap-1 rounded-2xl border border-border bg-surface p-1">
+          <div className="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface p-1">
             <button
               type="button"
               onClick={() => setView('board')}
-              className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
-                view === 'board' ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === 'board' ? 'bg-ink-900 text-white' : 'text-ink-500 hover:bg-surface-100'
               }`}
             >
               <LayoutGrid size={14} />
@@ -208,8 +208,8 @@ export default function Tasks() {
             <button
               type="button"
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
-                view === 'list' ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === 'list' ? 'bg-ink-900 text-white' : 'text-ink-500 hover:bg-surface-100'
               }`}
             >
               <List size={14} />

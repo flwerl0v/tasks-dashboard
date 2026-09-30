@@ -27,7 +27,7 @@ export function ActionMenu({ items, trigger = 'button' }: { items: ActionMenuIte
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-surface-100 hover:text-ink-600"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-surface-100 hover:text-ink-600"
           aria-label="เปิดเมนู"
         >
           <MoreVertical size={16} />

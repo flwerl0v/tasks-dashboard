@@ -165,14 +165,14 @@ export default function Reports() {
           <p className="text-sm text-ink-500">
             สถิติงาน/ภาพรวมกิจกรรมตามช่วงเวลาที่เลือก — งานเกินกำหนดและภาระงานทีมแสดงสถานะปัจจุบันเสมอ ไม่ผูกกับช่วงเวลานี้
           </p>
-          <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1">
+          <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1">
             {PERIOD_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setPeriod(opt.value)}
-                className={`rounded-2xl px-3 py-1.5 text-sm font-medium transition-colors ${
-                  period === opt.value ? 'bg-primary-600 text-white shadow-sm shadow-primary-600/20' : 'text-ink-500 hover:bg-surface-100'
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  period === opt.value ? 'bg-ink-900 text-white' : 'text-ink-500 hover:bg-surface-100'
                 }`}
               >
                 {opt.label}
