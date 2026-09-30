@@ -99,13 +99,13 @@ export function SearchInput({
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
         placeholder={placeholder}
-        className={`w-full rounded-2xl border border-border bg-surface px-3 outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 ${s.input}`}
+        className={`w-full rounded-md border border-border bg-surface px-3 outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 ${s.input}`}
       />
       {showMenu &&
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[100] overflow-y-auto rounded-2xl border border-border bg-surface shadow-lg"
+            className="fixed z-[100] overflow-y-auto rounded-md border border-border bg-surface shadow-lg"
             style={{ left: position?.left ?? 0, top: position?.top ?? 0, width: position?.width ?? 0, maxHeight: '50vh' }}
           >
             {matches.map((item) => (

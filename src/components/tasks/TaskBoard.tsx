@@ -40,8 +40,8 @@ export function TaskBoard({ tasks, teamById, memberById, onStatusChange }: TaskB
       {COLUMNS.map((col) => {
         const columnTasks = tasks.filter((tsk) => tsk.status === col.status).sort(byPriorityThenDueDate)
         return (
-          <div key={col.status} className="flex flex-col rounded-3xl bg-slate-100/75 p-3">
-            <div className={`mb-4 flex items-center gap-3 rounded-2xl ${col.headerBg} px-4 py-3`}>
+          <div key={col.status} className="flex flex-col rounded-lg bg-slate-100/75 p-3">
+            <div className={`mb-4 flex items-center gap-3 rounded-md ${col.headerBg} px-4 py-3`}>
               <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
               <h3 className="text-sm font-semibold text-slate-900">{col.label}</h3>
               <span className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">

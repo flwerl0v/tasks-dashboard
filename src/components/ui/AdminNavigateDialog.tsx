@@ -53,7 +53,7 @@ export function AdminNavigateDialog({ open, from, team, onClose, onConfirm }: Ad
           </span>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border-100 bg-surface shadow-sm">
+        <div className="overflow-hidden rounded-md border border-border-100 bg-surface shadow-sm">
           <div className={`h-12 bg-gradient-to-r ${style ? `${style.from} ${style.to}` : 'from-primary-600 to-primary-400'}`} />
           <div className="-mt-6 flex flex-col items-center px-4 pb-4 text-center">
             <span

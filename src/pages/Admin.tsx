@@ -212,7 +212,7 @@ function TeamsPanel() {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-ink-700"
           >
             <Plus size={14} />
             เพิ่มทีม
@@ -268,7 +268,7 @@ function TeamsPanel() {
                       e.stopPropagation()
                       navigate(`/admin/teams/${team.id}?newTask=1`)
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-slate-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100 hover:text-ink-900"
                   >
                     <Plus size={14} />
                     เพิ่มงาน

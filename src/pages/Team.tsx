@@ -204,7 +204,7 @@ export default function Team() {
         }
       >
         {confirmTeamPreview && (
-          <div className={`rounded-2xl border border-t-4 border-border-100 bg-surface p-4 shadow-sm ${confirmTeamPreview.style.border}`}>
+          <div className={`rounded-md border border-t-4 border-border-100 bg-surface p-4 shadow-sm ${confirmTeamPreview.style.border}`}>
             <div className="flex items-center gap-3">
               <span
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white ${confirmTeamPreview.style.solid}`}
