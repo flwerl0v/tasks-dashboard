@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertOctagon, ListTodo, TrendingUp, Users } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -12,10 +12,12 @@ import { WorkloadBadge } from '../components/ui/Badge'
 import { WeeklyTrendChart } from '../components/charts/WeeklyTrendChart'
 import { computeMemberWorkloads, computeTeamWorkloadSummary, computeWeeklyClosedTrend, workloadLevelForScore } from '../lib/workload'
 import { countByStatus, countByTeamAndStatus, isOverdue } from '../lib/stats'
-import { PRIORITY_COLORS, STATUS_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
+import { STATUS_COLORS, LEVEL_ROW_BG, chartColors } from '../lib/colors'
 import type { TaskPriority, TaskStatus } from '../types'
 
 const PRIORITY_LABELS: Record<TaskPriority, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
+// Warm ramp, grey -> amber -> orange -> red, so severity reads without a legend (High and Critical are no longer two near-identical reds).
+const PRIORITY_COLORS: Record<TaskPriority, string> = { low: '#cbd5e1', medium: '#fbbf24', high: '#fb923c', critical: '#e11d48' }
 const STATUS_ORDER: TaskStatus[] = ['todo', 'doing', 'done', 'blocked']
 const STATUS_LABELS: Record<TaskStatus, string> = { todo: 'To Do', doing: 'Doing', done: 'Done', blocked: 'Blocked' }
 
@@ -127,14 +129,20 @@ export default function Reports() {
 
   const topOverdueOwners = useMemo(() => {
     const memberById = new Map(members.map((m) => [m.id, m]))
-    const counts = new Map<string, number>()
+    const counts = new Map<string, Record<TaskStatus, number>>()
     for (const tsk of tasks) {
       if (!tsk.owner_id || !isOverdue(tsk)) continue
-      counts.set(tsk.owner_id, (counts.get(tsk.owner_id) ?? 0) + 1)
+      const row = counts.get(tsk.owner_id) ?? { todo: 0, doing: 0, done: 0, blocked: 0 }
+      row[tsk.status] += 1
+      counts.set(tsk.owner_id, row)
     }
     return [...counts.entries()]
-      .map(([ownerId, count]) => ({ member: memberById.get(ownerId), count }))
-      .filter((row): row is { member: NonNullable<typeof row.member>; count: number } => Boolean(row.member))
+      .map(([ownerId, byStatus]) => ({
+        member: memberById.get(ownerId),
+        byStatus,
+        count: STATUS_ORDER.reduce((sum, status) => sum + byStatus[status], 0),
+      }))
+      .filter((row): row is { member: NonNullable<typeof row.member>; byStatus: Record<TaskStatus, number>; count: number } => Boolean(row.member))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
   }, [tasks, members])
@@ -182,10 +190,10 @@ export default function Reports() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard label="งานทั้งหมด" value={periodTasks.length} icon={ListTodo} tone="neutral" />
-          <StatCard label="ความคืบหน้าเฉลี่ย" value={`${avgProgress}%`} icon={TrendingUp} tone="success" />
-          <StatCard label="งานเกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" />
-          <StatCard label="จำนวนทีม" value={teams.length} icon={Users} tone="default" />
+          <StatCard label="งานทั้งหมด" eyebrow="Total" value={periodTasks.length} icon={ListTodo} tone="neutral" />
+          <StatCard label="ความคืบหน้าเฉลี่ย" eyebrow="Avg progress" value={`${avgProgress}%`} icon={TrendingUp} tone="success" />
+          <StatCard label="งานเกินกำหนด" eyebrow="Overdue" value={overdueCount} icon={AlertOctagon} tone="danger" />
+          <StatCard label="จำนวนทีม" eyebrow="Teams" value={teams.length} icon={Users} tone="default" />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -215,6 +223,13 @@ export default function Reports() {
                   {priorityData.map((entry) => (
                     <Cell key={entry.priority} fill={PRIORITY_COLORS[entry.priority]} />
                   ))}
+                  <LabelList
+                    dataKey="count"
+                    position="top"
+                    offset={6}
+                    formatter={(v: unknown) => (Number(v) > 0 ? String(v) : '')}
+                    style={{ fontSize: 12, fontWeight: 600, fill: chartColors.tick }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -292,27 +307,46 @@ export default function Reports() {
             </div>
           </Card>
 
-          <Card title="Top ผู้รับผิดชอบที่งานเกินกำหนดมากที่สุด">
+          <Card title="Top ผู้รับผิดชอบที่งานเกินกำหนดมากที่สุด" className="flex flex-col">
             {topOverdueOwners.length === 0 ? (
               <EmptyState py="md">ไม่มีงานเกินกำหนดในขณะนี้</EmptyState>
             ) : (
-              <div className="space-y-2.5">
-                {topOverdueOwners.map(({ member, count }) => (
-                  <div key={member.id} className="relative overflow-hidden rounded-lg border border-border-100 px-3 py-2 text-sm">
-                    <div
-                      className="absolute inset-y-0 left-0 bg-danger-50"
-                      style={{ width: `${Math.round((count / topOverdueOwners[0].count) * 100)}%` }}
-                    />
-                    <div className="relative flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Avatar id={member.id} name={member.name} size={24} />
-                        <span className="truncate font-medium text-ink-700">{member.name}</span>
+              <>
+                <ol>
+                  {topOverdueOwners.map(({ member, byStatus, count }, i) => (
+                    <li key={member.id} className="flex items-center gap-2.5 border-b border-surface-100 py-1.5 text-sm last:border-b-0">
+                      <span className="w-4 shrink-0 text-right text-xs tabular-nums text-ink-400">{i + 1}</span>
+                      <Avatar id={member.id} name={member.name} size={26} />
+                      <span className="w-28 shrink-0 truncate font-medium text-ink-700">{member.name}</span>
+                      <div className="flex h-2 min-w-0 flex-1 gap-0.5 overflow-hidden rounded-full bg-surface-100">
+                        {STATUS_ORDER.filter((status) => byStatus[status] > 0).map((status) => (
+                          <div
+                            key={status}
+                            className="h-full"
+                            title={`${STATUS_LABELS[status]} ${byStatus[status]}`}
+                            style={{ width: `${(byStatus[status] / topOverdueOwners[0].count) * 100}%`, backgroundColor: STATUS_COLORS[status] }}
+                          />
+                        ))}
                       </div>
-                      <span className="shrink-0 text-xs font-semibold text-danger-600">{count} งาน</span>
-                    </div>
+                      <span className="w-5 shrink-0 text-right text-sm font-semibold tabular-nums text-ink-900">{count}</span>
+                    </li>
+                  ))}
+                </ol>
+                <div className="mt-auto border-t border-border pt-3">
+                  <div className="flex items-center justify-between text-sm text-ink-500">
+                    <span>รวมเกินกำหนด</span>
+                    <span className="font-semibold tabular-nums text-danger-700">{overdueCount} งาน</span>
                   </div>
-                ))}
-              </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-ink-600">
+                    {STATUS_ORDER.filter((status) => topOverdueOwners.some((row) => row.byStatus[status] > 0)).map((status) => (
+                      <span key={status} className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] }} />
+                        {STATUS_LABELS[status]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </Card>
         </div>
