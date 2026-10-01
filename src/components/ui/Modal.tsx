@@ -53,7 +53,7 @@ export function Modal({
         <div className="flex items-start justify-between gap-4 border-b border-border-100 px-6 py-5">
           <div className="flex items-start gap-3">
             {Icon && (
-              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-md ring-2 ${iconClassName}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ${iconClassName}`}>
                 <Icon size={20} />
               </span>
             )}
