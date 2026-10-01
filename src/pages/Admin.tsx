@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
@@ -7,12 +7,13 @@ import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ActionMenu, type ActionMenuItem } from '../components/ui/ActionMenu'
+import { TeamCard } from '../components/teams/TeamCard'
+import { MembersList } from '../components/members/MembersList'
+import { PageTabs } from '../components/ui/PageTabs'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { SuggestInput } from '../components/ui/SuggestInput'
 import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote } from '../components/ui/formStyles'
-import { getTeamBadgeStyle } from '../lib/teamColor'
-import { isOverdue } from '../lib/stats'
 import { describeSupabaseError } from '../lib/errors'
 import type { Member, Task, Team } from '../types'
 
@@ -29,6 +30,9 @@ export default function Admin() {
 function TeamsPanel() {
   const { teams, members, tasks, createTeam, updateTeam, deleteTeam, updateMember } = useAppData()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: 'teams' | 'members' = searchParams.get('tab') === 'members' ? 'members' : 'teams'
+  const setTab = (next: 'teams' | 'members') => setSearchParams(next === 'members' ? { tab: 'members' } : {}, { replace: true })
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
   const [rowError, setRowError] = useState<string | null>(null)
@@ -151,7 +155,7 @@ function TeamsPanel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink-500">
-        <span className="font-semibold text-ink-800">{filtered.length} ทีม</span> · {totalMembers} สมาชิกทั้งหมด
+        <span className="font-semibold text-ink-800">{teams.length} ทีม</span> · {totalMembers} สมาชิกทั้งหมด
       </p>
 
       {unassignedMembers.length > 0 && (
@@ -195,141 +199,87 @@ function TeamsPanel() {
       )}
 
       <Card>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-full sm:w-64" />
-            <DropdownSelect
-              value={teamFilter}
-              className="shrink-0"
-              label="ทุกทีม"
-              options={[{ value: '', label: 'ทุกทีม' },
-                ...[...teams]
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((tm) => ({ value: tm.id, label: tm.name }))]}
-              onChange={(value) => setTeamFilter(value)}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-ink-700"
-          >
-            <Plus size={14} />
-            เพิ่มทีม
-          </button>
-        </div>
+        <PageTabs
+          tabs={[
+            { key: 'teams', label: 'ทีม', count: teams.length },
+            { key: 'members', label: 'สมาชิก', count: members.length },
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
 
-        <ErrorNote message={rowError} />
-
-        {filtered.length === 0 ? (
-          <p className="py-10 text-center text-ink-400">{search || teamFilter ? 'ไม่พบทีมที่ตรงกับเงื่อนไข' : 'ยังไม่มีทีม'}</p>
+        {tab === 'members' ? (
+          <MembersList members={members} teams={teams} onOpenMember={(member, team) => navigate(`/admin/teams/${team.id}?member=${member.id}`)} />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((team) => {
-              const teamMembers = membersByTeam.get(team.id) ?? []
-              const teamTasks = tasksByTeam.get(team.id) ?? []
-              const active = teamTasks.filter((t) => t.status !== 'done').length
-              const donePercent = teamTasks.length > 0 ? Math.round((teamTasks.filter((t) => t.status === 'done').length / teamTasks.length) * 100) : 0
-              const overdue = teamTasks.filter(isOverdue).length
-              const style = getTeamBadgeStyle(team.id)
-              const visibleMembers = teamMembers.slice(0, 5)
-              const extraMemberCount = teamMembers.length - visibleMembers.length
-
-              return (
-                <div
-                  key={team.id}
-                  onClick={() => navigate(`/admin/teams/${team.id}`)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/admin/teams/${team.id}`)}
-                  className={`cursor-pointer rounded-xl border border-t-4 border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md ${style.border}`}
-                >
-<div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-start gap-3">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white ${style.solid}`}>
-                    {team.name.trim().slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="truncate font-semibold text-ink-800">{team.name}</p>
-                      {team.category && (
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style.bg} ${style.text}`}>
-                          {team.category}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-ink-400">{teamMembers.length} สมาชิก</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      navigate(`/admin/teams/${team.id}?newTask=1`)
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100 hover:text-ink-900"
-                  >
-                    <Plus size={14} />
-                    เพิ่มงาน
-                  </button>
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <ActionMenu
-                      trigger="icon"
-                      items={
-                        [
-                          { label: 'แก้ไข', icon: Pencil, onClick: () => openEdit(team) },
-                          { label: 'ลบ', icon: Trash2, danger: true, onClick: () => setDeleteTarget(team) },
-                        ] satisfies ActionMenuItem[]
-                      }
-                    />
-                  </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-3 flex items-center">
-                    {visibleMembers.map((m, i) => (
-                      <span
-                        key={m.id}
-                        title={m.name}
-                        style={{ zIndex: visibleMembers.length - i }}
-                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-ink-600 ${getTeamBadgeStyle(m.id).bg} ${i > 0 ? '-ml-2' : ''}`}
-                      >
-                        {m.name.trim().slice(0, 1).toUpperCase()}
-                      </span>
-                    ))}
-                    {extraMemberCount > 0 && (
-                      <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-surface-100 text-[11px] font-semibold text-ink-500">
-                        +{extraMemberCount}
-                      </span>
-                    )}
-                    {teamMembers.length === 0 && <span className="text-xs text-ink-300">ยังไม่มีสมาชิก</span>}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-warning-50 px-2 py-2 text-center">
-                      <p className="text-lg font-bold tabular-nums text-warning-600">{active}</p>
-                      <p className="text-[11px] text-warning-600/80">กำลังทำ</p>
-                    </div>
-                    <div className="rounded-lg bg-success-50 px-2 py-2 text-center">
-                      <p className="text-lg font-bold tabular-nums text-success-600">{donePercent}%</p>
-                      <p className="text-[11px] text-success-600/80">สำเร็จ</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-border-50 pt-2.5 text-xs text-ink-400">
-                    <span>งานทั้งหมด {teamTasks.length} งาน</span>
-                    {overdue > 0 && (
-                      <span className="flex items-center gap-1 font-medium text-danger-600">
-                        <AlertTriangle size={12} />
-                        เกินกำหนด {overdue}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+              <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-full sm:w-64" />
+              <DropdownSelect
+                value={teamFilter}
+                className="shrink-0"
+                label="ทุกทีม"
+                options={[{ value: '', label: 'ทุกทีม' },
+                  ...[...teams]
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((tm) => ({ value: tm.id, label: tm.name }))]}
+                onChange={(value) => setTeamFilter(value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-ink-700"
+            >
+              <Plus size={14} />
+              เพิ่มทีม
+            </button>
           </div>
+
+          <ErrorNote message={rowError} />
+
+          {filtered.length === 0 ? (
+            <p className="py-10 text-center text-ink-400">{search || teamFilter ? 'ไม่พบทีมที่ตรงกับเงื่อนไข' : 'ยังไม่มีทีม'}</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filtered.map((team) => (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  members={membersByTeam.get(team.id) ?? []}
+                  tasks={tasksByTeam.get(team.id) ?? []}
+                  onOpen={() => navigate(`/admin/teams/${team.id}`)}
+                  actions={
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/admin/teams/${team.id}?newTask=1`)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-600 transition-colors hover:bg-surface-100 hover:text-ink-900"
+                      >
+                        <Plus size={14} />
+                        เพิ่มงาน
+                      </button>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <ActionMenu
+                          trigger="icon"
+                          items={
+                            [
+                              { label: 'แก้ไข', icon: Pencil, onClick: () => openEdit(team) },
+                              { label: 'ลบ', icon: Trash2, danger: true, onClick: () => setDeleteTarget(team) },
+                            ] satisfies ActionMenuItem[]
+                          }
+                        />
+                      </div>
+                    </div>
+                  }
+                />
+              ))}
+            </div>
+          )}
+          </>
         )}
       </Card>
 

@@ -1,25 +1,31 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Info, Users } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
+import { PageTabs } from '../components/ui/PageTabs'
 import { SearchInput } from '../components/ui/SearchInput'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
-import { Modal } from '../components/ui/Modal'
+import { TeamCard } from '../components/teams/TeamCard'
+import { MembersList } from '../components/members/MembersList'
 import { AdminNavigateDialog } from '../components/ui/AdminNavigateDialog'
-import { cancelBtnClass, primaryBtnClass } from '../components/ui/formStyles'
-import { getTeamBadgeStyle } from '../lib/teamColor'
 import { isOverdue } from '../lib/stats'
 import type { Member, Task, Team } from '../types'
 
-export default function Team() {
+type PageTab = 'teams' | 'members'
+
+export default function TeamPage() {
   const { teams, members, tasks, loading, error } = useAppData()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: PageTab = searchParams.get('tab') === 'members' ? 'members' : 'teams'
+  const setTab = (next: PageTab) => setSearchParams(next === 'members' ? { tab: 'members' } : {}, { replace: true })
+
   const [search, setSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState('')
-  const [confirmTeamId, setConfirmTeamId] = useState<string | null>(null)
   const [pendingNavigateTeam, setPendingNavigateTeam] = useState<Team | null>(null)
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null)
 
   const membersByTeam = useMemo(() => {
     const map = new Map<string, Member[]>()
@@ -48,208 +54,96 @@ export default function Team() {
     })
   }, [teams, search, teamFilter])
 
-  const totalMembers = members.length
-
-  const confirmTeamPreview = useMemo(() => {
-    const team = teams.find((tm) => tm.id === confirmTeamId)
-    if (!team) return null
-    const teamMembers = membersByTeam.get(team.id) ?? []
-    const teamTasks = tasksByTeam.get(team.id) ?? []
+  const pendingStats = useMemo(() => {
+    if (!pendingNavigateTeam) return undefined
+    const teamTasks = tasksByTeam.get(pendingNavigateTeam.id) ?? []
     return {
-      team,
-      memberCount: teamMembers.length,
-      active: teamTasks.filter((t) => t.status !== 'done').length,
+      members: (membersByTeam.get(pendingNavigateTeam.id) ?? []).length,
+      doing: teamTasks.filter((t) => t.status === 'doing').length,
       overdue: teamTasks.filter(isOverdue).length,
-      style: getTeamBadgeStyle(team.id),
     }
-  }, [confirmTeamId, teams, membersByTeam, tasksByTeam])
+  }, [pendingNavigateTeam, membersByTeam, tasksByTeam])
+
+  const closeDialog = () => {
+    setPendingNavigateTeam(null)
+    setPendingMemberId(null)
+  }
 
   return (
     <AsyncState loading={loading} error={error}>
       <div className="space-y-4">
         <p className="text-sm text-ink-500">
-          <span className="font-semibold text-ink-800">{filtered.length} ทีม</span> · {totalMembers} สมาชิกทั้งหมด
+          <span className="font-semibold text-ink-800">{teams.length} ทีม</span> · {members.length} สมาชิกทั้งหมด
         </p>
 
         <Card>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-56" />
-            <DropdownSelect
-              value={teamFilter}
-              label="ทุกทีม"
-              options={[{ value: '', label: 'ทุกทีม' },
-                ...[...teams]
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((tm) => ({ value: tm.id, label: tm.name }))]}
-              onChange={(value) => setTeamFilter(value)}
-            />
-          </div>
+          <PageTabs
+            tabs={[
+              { key: 'teams', label: 'ทีม', count: teams.length },
+              { key: 'members', label: 'สมาชิก', count: members.length },
+            ]}
+            active={tab}
+            onChange={setTab}
+          />
 
-          {filtered.length === 0 ? (
-            <p className="py-10 text-center text-ink-400">
-              {search || teamFilter ? 'ไม่พบทีมที่ตรงกับเงื่อนไข' : 'ยังไม่มีทีม — ไปที่หน้า Admin เพื่อเพิ่มทีมและสมาชิก'}
-            </p>
+          {tab === 'teams' ? (
+            <>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาทีม" wrapperClassName="w-56" />
+                <DropdownSelect
+                  value={teamFilter}
+                  label="ทุกทีม"
+                  options={[{ value: '', label: 'ทุกทีม' },
+                    ...[...teams]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((tm) => ({ value: tm.id, label: tm.name }))]}
+                  onChange={(value) => setTeamFilter(value)}
+                />
+              </div>
+
+              {filtered.length === 0 ? (
+                <p className="py-10 text-center text-ink-400">
+                  {search || teamFilter ? 'ไม่พบทีมที่ตรงกับเงื่อนไข' : 'ยังไม่มีทีม — ไปที่หน้า Admin เพื่อเพิ่มทีมและสมาชิก'}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {filtered.map((team) => (
+                    <TeamCard
+                      key={team.id}
+                      team={team}
+                      members={membersByTeam.get(team.id) ?? []}
+                      tasks={tasksByTeam.get(team.id) ?? []}
+                      onOpen={() => setPendingNavigateTeam(team)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((team) => {
-                const teamMembers = membersByTeam.get(team.id) ?? []
-                const teamTasks = tasksByTeam.get(team.id) ?? []
-                const active = teamTasks.filter((t) => t.status !== 'done').length
-                const donePercent =
-                  teamTasks.length > 0
-                    ? Math.round((teamTasks.filter((t) => t.status === 'done').length / teamTasks.length) * 100)
-                    : 0
-                const overdue = teamTasks.filter(isOverdue).length
-                const style = getTeamBadgeStyle(team.id)
-                const visibleMembers = teamMembers.slice(0, 5)
-                const extraMemberCount = teamMembers.length - visibleMembers.length
-
-                return (
-                  <div
-                    key={team.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setConfirmTeamId(team.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') setConfirmTeamId(team.id)
-                    }}
-                    className={`cursor-pointer rounded-xl border border-t-4 border-border bg-surface p-4 shadow-sm transition-shadow hover:shadow-md ${style.border}`}
-                  >
-                    <div className="mb-3 flex items-start gap-3">
-                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white ${style.solid}`}>
-                        {team.name.trim().slice(0, 1).toUpperCase()}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="truncate font-semibold text-ink-800">{team.name}</p>
-                          {team.category && (
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${style.bg} ${style.text}`}>
-                              {team.category}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs text-ink-400">{teamMembers.length} สมาชิก</p>
-                      </div>
-                    </div>
-
-                    <div className="mb-3 flex items-center">
-                      {visibleMembers.map((m, i) => (
-                        <span
-                          key={m.id}
-                          title={m.name}
-                          style={{ zIndex: visibleMembers.length - i }}
-                          className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-ink-600 ${getTeamBadgeStyle(m.id).bg} ${i > 0 ? '-ml-2' : ''}`}
-                        >
-                          {m.name.trim().slice(0, 1).toUpperCase()}
-                        </span>
-                      ))}
-                      {extraMemberCount > 0 && (
-                        <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-surface-100 text-[11px] font-semibold text-ink-500">
-                          +{extraMemberCount}
-                        </span>
-                      )}
-                      {teamMembers.length === 0 && <span className="text-xs text-ink-300">ยังไม่มีสมาชิก</span>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-warning-50 px-2 py-2 text-center">
-                        <p className="text-lg font-bold tabular-nums text-warning-600">{active}</p>
-                        <p className="text-[11px] text-warning-600/80">กำลังทำ</p>
-                      </div>
-                      <div className="rounded-lg bg-success-50 px-2 py-2 text-center">
-                        <p className="text-lg font-bold tabular-nums text-success-600">{donePercent}%</p>
-                        <p className="text-[11px] text-success-600/80">สำเร็จ</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between border-t border-border-50 pt-2.5 text-xs text-ink-400">
-                      <span>งานทั้งหมด {teamTasks.length} งาน</span>
-                      {overdue > 0 && (
-                        <span className="flex items-center gap-1 font-medium text-danger-600">
-                          <AlertTriangle size={12} />
-                          เกินกำหนด {overdue}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <MembersList
+              members={members}
+              teams={teams}
+              onOpenMember={(member, team) => {
+                setPendingMemberId(member.id)
+                setPendingNavigateTeam(team)
+              }}
+            />
           )}
         </Card>
       </div>
-      <Modal
-        open={Boolean(confirmTeamPreview)}
-        onClose={() => setConfirmTeamId(null)}
-        title="ดูรายละเอียดทีม"
-        description={confirmTeamPreview ? `คุณจะไปยังหน้าจัดการทีม ${confirmTeamPreview.team.name} ใน Admin` : undefined}
-        icon={Info}
-        widthClassName="max-w-md"
-        footer={
-          <>
-            <button type="button" onClick={() => setConfirmTeamId(null)} className={cancelBtnClass}>
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (confirmTeamPreview) setPendingNavigateTeam(confirmTeamPreview.team)
-                setConfirmTeamId(null)
-              }}
-              className={primaryBtnClass}
-            >
-              ดูรายละเอียด
-            </button>
-          </>
-        }
-      >
-        {confirmTeamPreview && (
-          <div className={`rounded-md border border-t-4 border-border-100 bg-surface p-4 shadow-sm ${confirmTeamPreview.style.border}`}>
-            <div className="flex items-center gap-3">
-              <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white ${confirmTeamPreview.style.solid}`}
-              >
-                {confirmTeamPreview.team.name.trim().slice(0, 1).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="truncate text-base font-semibold text-ink-900">{confirmTeamPreview.team.name}</p>
-                  {confirmTeamPreview.team.category && (
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${confirmTeamPreview.style.bg} ${confirmTeamPreview.style.text}`}>
-                      {confirmTeamPreview.team.category}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-primary-50 px-2 py-2 text-center">
-                <p className="text-lg font-bold tabular-nums text-primary-600">{confirmTeamPreview.memberCount}</p>
-                <p className="text-[11px] text-primary-600/80">สมาชิก</p>
-              </div>
-              <div className="rounded-lg bg-warning-50 px-2 py-2 text-center">
-                <p className="text-lg font-bold tabular-nums text-warning-600">{confirmTeamPreview.active}</p>
-                <p className="text-[11px] text-warning-600/80">กำลังทำ</p>
-              </div>
-              <div className="rounded-lg bg-danger-50 px-2 py-2 text-center">
-                <p className="text-lg font-bold tabular-nums text-danger-600">{confirmTeamPreview.overdue}</p>
-                <p className="text-[11px] text-danger-600/80">เกินกำหนด</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
       <AdminNavigateDialog
         open={Boolean(pendingNavigateTeam)}
         from={{ label: 'Team', icon: Users }}
         team={pendingNavigateTeam}
-        onClose={() => setPendingNavigateTeam(null)}
+        stats={pendingStats}
+        onClose={closeDialog}
         onConfirm={() => {
-          if (pendingNavigateTeam) navigate(`/admin/teams/${pendingNavigateTeam.id}`)
-          setPendingNavigateTeam(null)
+          if (pendingNavigateTeam) {
+            navigate(`/admin/teams/${pendingNavigateTeam.id}${pendingMemberId ? `?member=${pendingMemberId}` : ''}`)
+          }
+          closeDialog()
         }}
       />
-  </AsyncState>
+    </AsyncState>
   )
 }
