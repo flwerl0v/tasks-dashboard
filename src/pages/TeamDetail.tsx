@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ChevronRight, Clock, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChevronRight, ListChecks, Mail, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
 import { useAppData } from '../context/AppDataContext'
 import { AsyncState } from '../components/ui/AsyncState'
 import { Card } from '../components/ui/Card'
@@ -11,6 +11,7 @@ import { MemberDetailModal } from '../components/members/MemberDetailModal'
 import { StatusBadge, PriorityFlag, DueDateChip, WorkloadBadge } from '../components/ui/Badge'
 import { OwnerCell } from '../components/ui/Avatar'
 import { statusDropdownOption, priorityDropdownOption } from '../lib/dropdownColors'
+import { StatusStack } from '../components/teams/StatusStack'
 import { Pagination } from '../components/ui/Pagination'
 import { DropdownSelect } from '../components/ui/DropdownSelect'
 import { SuggestInput } from '../components/ui/SuggestInput'
@@ -20,6 +21,7 @@ import { inputClass, fieldLabelClass, cancelBtnClass, primaryBtnClass, ErrorNote
 import { SortHeader, TableToolbar, SelectionBar, TableFooter } from '../components/ui/tableParts'
 import { useTableState } from '../lib/useTableState'
 import { getTeamBadgeStyle } from '../lib/teamColor'
+import { nameInitial } from '../lib/nameInitial'
 import { STATUS_COLORS, STATUS_ROW_BG } from '../lib/colors'
 import { isOverdue } from '../lib/stats'
 import { computeMemberWorkloads } from '../lib/workload'
@@ -27,10 +29,9 @@ import { describeSupabaseError } from '../lib/errors'
 import { useToast } from '../components/ui/ToastProvider'
 import type { Member, Task, TaskPriority, TaskStatus } from '../types'
 
-type DetailTab = 'overview' | 'tasks' | 'members'
+type DetailTab = 'tasks' | 'members'
 
 const DETAIL_TABS: Array<{ key: DetailTab; label: string }> = [
-  { key: 'overview', label: 'แนะนำทีม' },
   { key: 'tasks', label: 'งานของทีม' },
   { key: 'members', label: 'สมาชิก' },
 ]
@@ -81,7 +82,7 @@ export default function TeamDetail() {
   } = useAppData()
   const { showError } = useToast()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<DetailTab>('overview')
+  const [tab, setTab] = useState<DetailTab>('tasks')
 
   const [editOpen, setEditOpen] = useState(false)
   const [name, setName] = useState('')
@@ -141,8 +142,9 @@ export default function TeamDetail() {
     [teamMembers, tasks],
   )
 
-  const active = teamTasks.filter((t) => t.status !== 'done').length
   const overdue = teamTasks.filter(isOverdue).length
+  const doingCount = teamTasks.filter((t) => t.status === 'doing').length
+  const doneCount = teamTasks.filter((t) => t.status === 'done').length
 
   const filteredTasks = useMemo(() => {
     const q = taskSearch.trim().toLowerCase()
@@ -187,6 +189,18 @@ export default function TeamDetail() {
       openCreateTask()
     }
   }, [searchParams])
+
+  useEffect(() => {
+    // Opens a member's detail popup once when linked here with ?member=<id> (e.g. from the Team page's members tab).
+    const memberId = searchParams.get('member')
+    if (memberId && teamMembers.some((m) => m.id === memberId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab('members')
+      setDetailMemberId(memberId)
+    }
+    // Only react to the link, not to later member list changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, teamId])
 
   const filteredMembers = useMemo(() => {
     const q = memberSearch.trim().toLowerCase()
@@ -419,101 +433,87 @@ export default function TeamDetail() {
             <ArrowLeft size={16} />
           </Link>
 
-          <div className="overflow-hidden rounded-md border border-border bg-surface shadow-sm">
-            <div className={`h-28 bg-gradient-to-r ${style.from} ${style.to}`} />
-            <div className="px-6 pb-6">
-              <div className="flex items-end justify-between gap-3">
-                <span
-                  className={`-mt-12 flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 border-white text-2xl font-bold text-white shadow-lg ${style.solid}`}
-                >
-                  {team.name.trim().slice(0, 1).toUpperCase()}
-                </span>
-                <div className="mb-1">
-                  <ActionMenu
-                    trigger="icon"
-                    items={
-                      [
-                        { label: 'แก้ไขทีม', icon: Pencil, onClick: openEdit },
-                        { label: 'ลบทีม', icon: Trash2, danger: true, onClick: () => setDeleteTeamConfirmOpen(true) },
-                      ] satisfies ActionMenuItem[]
-                    }
-                  />
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-2xl font-bold text-ink-900 truncate">{team.name}</h2>
+          <div className="overflow-hidden rounded-md border border-border bg-surface">
+            <div className="flex flex-wrap items-center gap-4 px-6 py-5">
+              <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-md text-2xl font-bold text-white ${style.solid}`}>
+                {nameInitial(team.name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-2xl font-semibold text-ink-900">{team.name}</h2>
                   {team.category && (
-                    <div className="mt-1">
-                      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${style.bg} ${style.text}`}>{team.category}</span>
-                    </div>
+                    <span className="rounded bg-surface-100 px-2 py-0.5 text-xs font-medium text-ink-600">{team.category}</span>
                   )}
                 </div>
-
-                <div className="flex gap-3 items-center">
-                  <div className="flex items-center gap-3 rounded-md border border-border-100 bg-surface-50 px-4 py-3 shadow-sm">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-200 text-ink-600">
-                      <Users size={18} />
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-500">
+                  <span className="flex items-center gap-2">
+                    {teamMembers.length} สมาชิก
+                    <span className="flex items-center">
+                      {teamMembers.slice(0, 5).map((m, i) => (
+                        <span
+                          key={m.id}
+                          title={m.name}
+                          style={{ zIndex: 5 - i }}
+                          className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[11px] font-semibold text-white ${getTeamBadgeStyle(m.id).solid} ${i > 0 ? '-ml-1.5' : ''}`}
+                        >
+                          {nameInitial(m.name)}
+                        </span>
+                      ))}
                     </span>
-                    <div>
-                      <p className="text-lg font-bold tabular-nums text-ink-800">{teamMembers.length}</p>
-                      <p className="text-xs text-ink-400">สมาชิก</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 rounded-md border border-warning-100 bg-warning-50 px-4 py-3 shadow-sm">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-100 text-warning-600">
-                      <Clock size={18} />
-                    </span>
-                    <div>
-                      <p className="text-lg font-bold tabular-nums text-warning-700">{active}</p>
-                      <p className="text-xs text-warning-600/80">กำลังทำ</p>
-                    </div>
-                  </div>
+                  </span>
+                  <span className="text-ink-300">·</span>
+                  <span>สร้างเมื่อ {formatDate(team.created_at)}</span>
+                  {overdue > 0 && (
+                    <>
+                      <span className="text-ink-300">·</span>
+                      <span className="font-medium text-danger-700">เกินกำหนด {overdue} งาน</span>
+                    </>
+                  )}
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={openCreateTask} className={`${primaryBtnClass} px-4 py-2`}>
+                  + เพิ่มงาน
+                </button>
+                <ActionMenu
+                  trigger="icon"
+                  items={
+                    [
+                      { label: 'แก้ไขทีม', icon: Pencil, onClick: openEdit },
+                      { label: 'ลบทีม', icon: Trash2, danger: true, onClick: () => setDeleteTeamConfirmOpen(true) },
+                    ] satisfies ActionMenuItem[]
+                  }
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-4 border-t border-border-100 px-6 py-3">
-              <div className="flex gap-2">
-                {DETAIL_TABS.map(({ key, label }) => (
+            <div className="flex gap-7 border-t border-border px-6">
+              {DETAIL_TABS.map(({ key, label }) => {
+                const count = key === 'tasks' ? teamTasks.length : teamMembers.length
+                return (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setTab(key)}
-                    className={`py-2 px-3 text-sm font-medium transition ${
-                      tab === key ? 'bg-primary-50 text-primary-600 rounded-md' : 'text-ink-500 hover:bg-surface-100 rounded-md'
+                    className={`-mb-px border-b-2 py-3 text-sm font-medium transition-colors ${
+                      tab === key ? `${style.line} text-ink-900` : 'border-transparent text-ink-500 hover:text-ink-900'
                     }`}
                   >
                     {label}
+                    <span
+                      className={`ml-2 rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
+                        tab === key ? `${style.solid} text-white` : 'bg-surface-100 text-ink-500'
+                      }`}
+                    >
+                      {count}
+                    </span>
                   </button>
-                ))}
-              </div>
+                )
+              })}
             </div>
           </div>
 
-          {tab === 'overview' && (
-            <Card title="เกี่ยวกับทีม">
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs text-ink-400">แผนก / สายงาน</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-ink-700">{team.category ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-400">สร้างเมื่อ</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-ink-700">{formatDate(team.created_at)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-400">งานทั้งหมด</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-ink-700">{teamTasks.length} งาน</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-ink-400">งานเกินกำหนด</dt>
-                  <dd className={`mt-0.5 text-sm font-medium ${overdue ? 'text-danger-600' : 'text-ink-700'}`}>{overdue} งาน</dd>
-                </div>
-              </dl>
-            </Card>
-          )}
-
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="min-w-0 space-y-4">
           {tab === 'tasks' && (
             <Card>
               <TableToolbar search={taskSearch} onSearchChange={setTaskSearch} createLabel="เพิ่มงาน" onCreate={openCreateTask} />
@@ -523,15 +523,15 @@ export default function TeamDetail() {
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
                   <thead>
-                    <tr className="text-[11px] tracking-wide text-ink-400">
-                      <th className="w-10 rounded-l-lg bg-surface-100 py-2.5 pl-4"></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="สถานะ" sortKey="status" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="bg-surface-100 py-2.5 pr-4 font-semibold"><SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
-                      <th className="rounded-r-lg bg-surface-100 py-2.5 pr-4 text-right font-semibold">Action</th>
+                    <tr className={`text-[11px] tracking-wide ${style.text}`}>
+                      <th className={`w-10 rounded-l-lg ${style.soft} py-2.5 pl-4`}></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="งาน" sortKey="title" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="ผู้รับผิดชอบ" sortKey="owner" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="สถานะ" sortKey="status" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="ความสำคัญ" sortKey="priority" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="กำหนดส่ง" sortKey="due_date" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`${style.soft} py-2.5 pr-4 font-semibold`}><SortHeader label="ความคืบหน้า" sortKey="progress" activeKey={taskTable.sortKey} dir={taskTable.sortDir} onSort={taskTable.toggleSort} /></th>
+                      <th className={`rounded-r-lg ${style.soft} py-2.5 pr-4 text-right font-semibold`}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -624,7 +624,7 @@ export default function TeamDetail() {
               <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-surface-50 text-xs">
+                    <tr className={`border-b border-border ${style.soft} text-xs`}>
                       <th className="w-10 py-3 pl-4"></th>
                       <th className="py-3 pr-4"><SortHeader label="สมาชิก" sortKey="name" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
                       <th className="w-44 py-3 pr-4"><SortHeader label="ภาระงาน" sortKey="load" activeKey={memberTable.sortKey} dir={memberTable.sortDir} onSort={memberTable.toggleSort} /></th>
@@ -741,6 +741,75 @@ export default function TeamDetail() {
               <Pagination page={memberTable.page} pageCount={memberTable.pageCount} onPageChange={memberTable.setPage} />
             </Card>
           )}
+            </div>
+
+            <aside className="space-y-4">
+              <div className="overflow-hidden rounded-md border border-border bg-surface">
+                <h3 className="px-5 pt-5 text-sm font-semibold text-ink-900">ภาพรวมงาน</h3>
+                <div className="p-5">
+                  <dl className="space-y-2.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <dt className="flex items-center gap-2 text-danger-700">
+                        <span className="h-2 w-2 rounded-full bg-danger-500" />
+                        เกินกำหนด
+                      </dt>
+                      <dd className={`font-semibold tabular-nums ${overdue > 0 ? 'text-danger-700' : 'text-ink-300'}`}>{overdue}</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="flex items-center gap-2 text-warning-700">
+                        <span className="h-2 w-2 rounded-full bg-warning-500" />
+                        กำลังทำ
+                      </dt>
+                      <dd className={`font-semibold tabular-nums ${doingCount > 0 ? 'text-warning-700' : 'text-ink-300'}`}>{doingCount}</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="flex items-center gap-2 text-success-700">
+                        <span className="h-2 w-2 rounded-full bg-success-500" />
+                        สำเร็จ
+                      </dt>
+                      <dd className={`font-semibold tabular-nums ${doneCount > 0 ? 'text-success-700' : 'text-ink-300'}`}>{doneCount}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4">
+                    <StatusStack tasks={teamTasks} colorLabels />
+                  </div>
+                </div>
+              </div>
+
+              <Card title="ข้อมูลทีม">
+                <dl className="divide-y divide-border-100 text-sm">
+                  <div className="flex items-center justify-between py-2">
+                    <dt className="text-ink-500">แผนก / สายงาน</dt>
+                    <dd>
+                      {team.category ? (
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.bg} ${style.text}`}>{team.category}</span>
+                      ) : (
+                        '-'
+                      )}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <dt className="text-ink-500">สร้างเมื่อ</dt>
+                    <dd className="font-medium text-ink-900">{formatDate(team.created_at)}</dd>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <dt className="text-ink-500">งานทั้งหมด</dt>
+                    <dd className="font-medium text-ink-900">{teamTasks.length} งาน</dd>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <dt className="text-ink-500">งานเกินกำหนด</dt>
+                    <dd>
+                      {overdue > 0 ? (
+                        <span className="rounded-full bg-danger-50 px-2.5 py-0.5 text-xs font-semibold text-danger-700">{overdue} งาน</span>
+                      ) : (
+                        <span className="font-medium text-ink-900">0 งาน</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </Card>
+            </aside>
+          </div>
 
           <Modal
             open={editOpen}
@@ -945,7 +1014,13 @@ export default function TeamDetail() {
             </div>
           </Modal>
 
-          <MemberDetailModal memberId={detailMemberId} onClose={() => setDetailMemberId(null)} />
+          <MemberDetailModal
+            key={detailMemberId ?? 'none'}
+            memberId={detailMemberId}
+            onClose={() => setDetailMemberId(null)}
+            onEdit={openEditMember}
+            onDelete={setMemberDeleteTarget}
+          />
 
           <ConfirmDialog
             open={deleteTeamConfirmOpen}

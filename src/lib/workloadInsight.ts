@@ -14,6 +14,8 @@ const LEVEL_LABELS = { overload: 'เยอะเกิน', balanced: 'พอ�
 // --- [CACHE & DEDUPLICATION LOGIC] ---
 const requestCache = new Map<string, { promise: Promise<AiWorkloadInsight>; timestamp: number }>()
 const CACHE_TTL_MS = 15000 // 15 วินาที ดักไม่ให้ยิง API ซ้ำติดๆ กัน
+/** Gemini can be slow or overloaded (the Edge Function itself retries up to 3x) — stop waiting after this and show the rule-based text with the reason. */
+const REQUEST_TIMEOUT_MS = 20000
 
 function buildOwnerSummaryInput(workload: MemberWorkload, tasks: Task[]): OwnerWorkloadSummaryInput {
   const openTasks = tasks.filter((t) => t.owner_id === workload.member.id && t.status !== 'done')
@@ -105,11 +107,14 @@ async function callInsightEndpoint(bodyPayload: Record<string, unknown>, fallbac
   }
 
   const fetchPromise = (async (): Promise<AiWorkloadInsight> => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
+        signal: controller.signal,
       })
 
       if (!res.ok) {
@@ -131,10 +136,16 @@ async function callInsightEndpoint(bodyPayload: Record<string, unknown>, fallbac
         generated_at: new Date().toISOString(),
       }
     } catch (err) {
-      const reason = describeFetchFailure(err)
+      // Our own timeout: the Edge Function retries Gemini up to 3x, so a slow answer usually means Gemini is busy or over quota.
+      const reason =
+        err instanceof DOMException && err.name === 'AbortError'
+          ? `AI ตอบช้าเกิน ${REQUEST_TIMEOUT_MS / 1000} วินาที — มักเกิดจาก Gemini มีผู้ใช้หนาแน่นหรือโควตาเต็ม ลองกด "ขอสรุปใหม่" อีกครั้งในภายหลัง`
+          : describeFetchFailure(err)
       console.error(`[workload-insight] Request failed, falling back to Rule-Based: ${reason}`, err)
       requestCache.delete(cacheKey)
       return withFailureReason(fallback, reason)
+    } finally {
+      clearTimeout(timer)
     }
   })()
 

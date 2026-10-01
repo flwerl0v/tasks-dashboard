@@ -86,11 +86,11 @@ export default function Dashboard() {
     <AsyncState loading={loading} error={error}>
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <StatCard label="งานทั้งหมด" value={tasks.length} icon={ListTodo} tone="neutral" hint="ทุกทีม ทุกสถานะ" />
-          <StatCard label="กำลังดำเนินการ" value={byStatus.doing} icon={Clock} tone="warning" hint={shareOfTotal(byStatus.doing)} />
-          <StatCard label="เสร็จแล้ว" value={byStatus.done} icon={CheckCircle2} tone="success" hint={shareOfTotal(byStatus.done)} />
-          <StatCard label="ใกล้ครบกำหนด" value={dueSoonCount} icon={TimerReset} tone="default" hint={shareOfTotal(dueSoonCount)} />
-          <StatCard label="เกินกำหนด" value={overdueCount} icon={AlertOctagon} tone="danger" hint={shareOfTotal(overdueCount)} />
+          <StatCard label="งานทั้งหมด" eyebrow="Total" value={tasks.length} icon={ListTodo} tone="neutral" hint="ทุกทีม ทุกสถานะ" />
+          <StatCard label="กำลังดำเนินการ" eyebrow="In progress" total={tasks.length} value={byStatus.doing} icon={Clock} tone="warning" hint={shareOfTotal(byStatus.doing)} />
+          <StatCard label="เสร็จแล้ว" eyebrow="Done" total={tasks.length} value={byStatus.done} icon={CheckCircle2} tone="success" hint={shareOfTotal(byStatus.done)} />
+          <StatCard label="ใกล้ครบกำหนด" eyebrow="Due soon" total={tasks.length} value={dueSoonCount} icon={TimerReset} tone="default" hint={shareOfTotal(dueSoonCount)} />
+          <StatCard label="เกินกำหนด" eyebrow="Overdue" total={tasks.length} value={overdueCount} icon={AlertOctagon} tone="danger" hint={shareOfTotal(overdueCount)} />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

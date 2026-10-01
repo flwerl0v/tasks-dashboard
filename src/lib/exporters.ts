@@ -2,7 +2,8 @@ import ExcelJS from 'exceljs'
 import type { Member, MemberWorkload, Task, Team } from '../types'
 import type { CapturedChart } from './chartCapture'
 
-function flattenTasks(tasks: Task[], teams: Team[], members: Member[]) {
+/** Rows of the "Tasks" sheet. */
+export function buildTaskRows(tasks: Task[], teams: Team[], members: Member[]) {
   const teamById = new Map(teams.map((t) => [t.id, t]))
   const memberById = new Map(members.map((m) => [m.id, m]))
   return tasks.map((tsk) => ({
@@ -15,6 +16,34 @@ function flattenTasks(tasks: Task[], teams: Team[], members: Member[]) {
     progress: tsk.progress,
     effort_days: tsk.effort_days,
   }))
+}
+
+/** Rows of the "Workload (AI)" sheet (rule-based numbers — no AI call happens on export). */
+export function buildWorkloadRows(workloads: MemberWorkload[]) {
+  return workloads.map((w) => ({
+    member: w.member.name,
+    open_tasks: w.openTaskCount,
+    effort_days: w.totalEffortDays,
+    overdue: w.overdueCount,
+    ai_level: w.level,
+    reason: w.reason,
+  }))
+}
+
+/** Rows of the "Team Summary" sheet. */
+export function buildTeamSummaryRows(tasks: Task[], teams: Team[], members: Member[]) {
+  return teams.map((team) => {
+    const teamTasks = tasks.filter((tsk) => tsk.team_id === team.id)
+    return {
+      team: team.name,
+      members: members.filter((m) => m.team_id === team.id).length,
+      total_tasks: teamTasks.length,
+      done: teamTasks.filter((tsk) => tsk.status === 'done').length,
+      doing: teamTasks.filter((tsk) => tsk.status === 'doing').length,
+      todo: teamTasks.filter((tsk) => tsk.status === 'todo').length,
+      blocked: teamTasks.filter((tsk) => tsk.status === 'blocked').length,
+    }
+  })
 }
 
 function addDataSheet(wb: ExcelJS.Workbook, name: string, rows: Array<Record<string, string | number>>) {
@@ -67,37 +96,9 @@ export async function exportSummaryXlsx(
 ) {
   const wb = new ExcelJS.Workbook()
 
-  addDataSheet(wb, 'Tasks', flattenTasks(tasks, teams, members))
-
-  addDataSheet(
-    wb,
-    'Workload (AI)',
-    workloads.map((w) => ({
-      member: w.member.name,
-      open_tasks: w.openTaskCount,
-      effort_days: w.totalEffortDays,
-      overdue: w.overdueCount,
-      ai_level: w.level,
-      reason: w.reason,
-    })),
-  )
-
-  addDataSheet(
-    wb,
-    'Team Summary',
-    teams.map((team) => {
-      const teamTasks = tasks.filter((tsk) => tsk.team_id === team.id)
-      return {
-        team: team.name,
-        members: members.filter((m) => m.team_id === team.id).length,
-        total_tasks: teamTasks.length,
-        done: teamTasks.filter((tsk) => tsk.status === 'done').length,
-        doing: teamTasks.filter((tsk) => tsk.status === 'doing').length,
-        todo: teamTasks.filter((tsk) => tsk.status === 'todo').length,
-        blocked: teamTasks.filter((tsk) => tsk.status === 'blocked').length,
-      }
-    }),
-  )
+  addDataSheet(wb, 'Tasks', buildTaskRows(tasks, teams, members))
+  addDataSheet(wb, 'Workload (AI)', buildWorkloadRows(workloads))
+  addDataSheet(wb, 'Team Summary', buildTeamSummaryRows(tasks, teams, members))
 
   if (charts.length > 0) addChartSheet(wb, charts)
 
